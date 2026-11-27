@@ -1,3 +1,4 @@
 avatar.png
 *.tar.gz
 *.tgz
+tmp/
