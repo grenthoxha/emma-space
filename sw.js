@@ -1,4 +1,4 @@
-const CACHE_NAME = "emma-space-v17-supabase";
+const CACHE_NAME = "emma-space-v18-administration";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,7 +9,11 @@ const APP_SHELL = [
   "./responsive.css",
   "./responsive.js",
   "./auth.css",
-  "./auth-config.js?v=17",
+  "./auth-config.js?v=18",
+  "./admin.html",
+  "./admin.css?v=18",
+  "./admin-service.js?v=18",
+  "./admin-ui.js?v=18",
   "./vendor/supabase.js",
   "./supabase-auth.js?v=17",
   "./auth-service.js?v=17",

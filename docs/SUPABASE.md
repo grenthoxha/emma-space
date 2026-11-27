@@ -19,9 +19,11 @@ The applicant can read only their request/photo, submit a photo after verified a
 
 ## Owner review
 
+The owner now has a dedicated [administration panel](ADMIN.md) with **Prano / Refuzo / Hiq qasjen**. Its backend is deployed, but the owner must still register/verify their chosen email and receive the private administrator assignment described there. It allows one administrator and one approved app user; the regular app cannot grant this role.
+
 Use the Supabase dashboard account that owns this project. Authentication → Users lists the verified email and user UUID. Storage → Files → `emma-registration` contains that UUID's private `capture.jpg`. Table Editor → `emma_access_requests` shows submitted requests. Match the UUID/email/photo yourself; change only the intended request's `status` from `pending` to `approved`, or to `rejected`. The database blocks a second approved account even for concurrent approvals. Use `revoked` to withdraw access. No approval has been performed automatically.
 
-There is no separate public admin registration or default admin password. Owner review stays in the authenticated Supabase dashboard, which also avoids exposing a privileged API key in the static app. The public introduction still reads “Lejohet vetëm llogaria e Emmës.”
+The panel's account form creates an ordinary verified Auth account only. Administrator assignment is owner-only in the Supabase dashboard; no signup grants privileged access and there is no default password. The public introduction still reads “Lejohet vetëm llogaria e Emmës.”
 
 ## Sessions, offline and data
 
