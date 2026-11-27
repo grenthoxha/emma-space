@@ -10,6 +10,14 @@ The owner requested **one administrator plus one approved app user**, with no ha
 2. As the authenticated Supabase project owner, run `supabase-admin-assign.sql` in SQL Editor with that actual verified email. This resolves the Auth UUID and inserts it into the private administrator registry. Do not publish a completed copy containing your email or any password. The script refuses to replace another active administrator silently.
 3. Return to the panel and sign in or select “Kontrollo aktivizimin”. Only a server-verified member of the private registry can see requests and photographs.
 
+As an alternative for this initial owner account while SMTP is unfinished, the
+authenticated Supabase project owner can use Authentication → Users → Add user →
+Create new user. The owner must enter the email and password themselves. The
+dashboard's “Auto confirm user?” option provisions the account directly without
+sending an email; this does not disable confirmation for public signups. Then use
+the same private UUID assignment above. A ready form has been opened for the
+owner, but no real credentials or administrator membership have been created yet.
+
 The owner email is not yet selected and no live administrator has been assigned. Creating a public account first does not make it the owner. There is no demo administrator or default password.
 
 ## Deployed backend
