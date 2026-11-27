@@ -5095,9 +5095,9 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   <script src="./space-model.js"></script>
   <script src="./journal-pdf.js"></script>
   <script src="./responsive.js"></script>
-  <script src="./auth-config.js"></script>
+  <script src="./auth-config.js?v=16"></script>
   <script src="./auth-service.js"></script>
-  <script src="./auth-ui.js"></script>
+  <script src="./auth-ui.js?v=16"></script>
   <script>
 (() => {
   "use strict";
@@ -5105,9 +5105,16 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   /* ==========================================================================
      Storage & Constants
      ========================================================================== */
-  // Development demo always uses its own database, drafts and legacy keys.
-  // A query parameter alone never opens the real workspace or enables a backend session.
-  const DEV_DEMO_AVAILABLE = window.EMMA_AUTH_CONFIG?.developmentDemo === true && !window.EMMA_AUTH_CONFIG?.apiBaseUrl && (location.protocol === 'file:' || ['http:','https:'].includes(location.protocol) && ['localhost','127.0.0.1','[::1]'].includes(location.hostname));
+  // Demo always uses its own database, drafts and legacy keys.
+  // The published preview is opt-in for one exact HTTPS origin and app path.
+  const IS_PUBLIC_DEMO_LOCATION = (() => {
+    try {
+      const target=new URL(window.EMMA_AUTH_CONFIG?.publicDemoUrl || ''),here=new URL(location.href);
+      const path=target.pathname.endsWith('/')?target.pathname:target.pathname+'/';
+      return target.protocol==='https:'&&!target.username&&!target.password&&!target.search&&!target.hash&&here.origin===target.origin&&(here.pathname===path||here.pathname===path+'index.html');
+    } catch {return false;}
+  })();
+  const DEV_DEMO_AVAILABLE = window.EMMA_AUTH_CONFIG?.developmentDemo === true && !window.EMMA_AUTH_CONFIG?.apiBaseUrl && (IS_PUBLIC_DEMO_LOCATION || location.protocol === 'file:' || ['http:','https:'].includes(location.protocol) && ['localhost','127.0.0.1','[::1]'].includes(location.hostname));
   const DEV_DEMO_ACTIVE = DEV_DEMO_AVAILABLE && /(?:^|&)demo=1(?:&|$)/.test((location.search || '').slice(1));
   const workspaceKey = key => DEV_DEMO_ACTIVE ? 'emma-space-demo:' + key : key;
   const STORAGE_KEY = workspaceKey("emma-tulip-garden-static");

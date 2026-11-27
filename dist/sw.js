@@ -1,4 +1,4 @@
-const CACHE_NAME = "emma-space-v15-header-scroll-clip";
+const CACHE_NAME = "emma-space-v16-published-demo";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,9 +9,9 @@ const APP_SHELL = [
   "./responsive.css",
   "./responsive.js",
   "./auth.css",
-  "./auth-config.js",
+  "./auth-config.js?v=16",
   "./auth-service.js",
-  "./auth-ui.js",
+  "./auth-ui.js?v=16",
   "./vendor/pdf.js",
   "./vendor/pdf.worker.js",
   "./manifest.webmanifest",

@@ -36,5 +36,14 @@ function app(storage=new Map(),initiallyApproved=true,env={}) {
   assert.equal(sharedStorage.get('emma-space-device-fallback'),realContent);assert.equal(sharedStorage.get('emma-space-journal-draft-text'),realContent);assert.equal(sharedStorage.get('emma-space-signed-out'),'1');
   assert.equal(JSON.parse(sharedStorage.get(demo.api.FALLBACK_KEY)).journalDraft.title,'DEMO DRAFT');assert(!demo.client.isAuthenticated());
   const fileDemo=app(new Map(),false,{...demoEnv,location:{...demoEnv.location,protocol:'file:',hostname:''}});assert(fileDemo.api.DEV_DEMO_ACTIVE);
-  console.log('PASS: real auth gate, logout/PIN/cross-tab, local-only demo restrictions and separate demo storage/drafts/exit');
+  const publishedDemo={config:{developmentDemo:true,apiBaseUrl:'',publicDemoUrl:'https://grenthoxha.github.io/emma-space/'},location:{protocol:'https:',hostname:'grenthoxha.github.io',href:'https://grenthoxha.github.io/emma-space/?demo=1#profile',search:'?demo=1'}};
+  const previewEntry=app(new Map(),false,{...publishedDemo,location:{...publishedDemo.location,href:'https://grenthoxha.github.io/emma-space/',search:''}});assert(previewEntry.api.DEV_DEMO_AVAILABLE);assert(!previewEntry.api.DEV_DEMO_ACTIVE);assert(!previewEntry.api.hasWorkspaceAccess());
+  for(const change of [{config:{...publishedDemo.config,apiBaseUrl:'/api/auth'}},{config:{...publishedDemo.config,developmentDemo:false}},{config:{...publishedDemo.config,publicDemoUrl:''}},{location:{...publishedDemo.location,href:'https://grenthoxha.github.io/other-app/?demo=1'}},{location:{...publishedDemo.location,href:'https://grenthoxha.github.io.evil.example/emma-space/?demo=1'}},{location:{...publishedDemo.location,href:'http://grenthoxha.github.io/emma-space/?demo=1'}}]){
+    const blocked=app(new Map(),false,{...publishedDemo,...change});assert(!blocked.api.DEV_DEMO_AVAILABLE);assert(!blocked.api.hasWorkspaceAccess());
+  }
+  const hosted=app(sharedStorage,false,publishedDemo);assert(hosted.api.DEV_DEMO_ACTIVE);assert(!hosted.client.isAuthenticated());
+  for(const key of ['DB_NAME','STORAGE_KEY','LEGACY_KEY','FALLBACK_KEY','DRAFT_TEXT_KEY','SIGNED_OUT_KEY'])assert(hosted.api[key].startsWith('emma-space-demo:'));
+  hosted.api.setState(hosted.api.initialWorkspaceState());hosted.api.setDraft({title:'HOSTED DEMO DRAFT',content:[{type:'text',text:'Preview only'}]});await hosted.api.logOut();assert.equal(hosted.destinations[0],'https://grenthoxha.github.io/emma-space/#home');assert.equal(sharedStorage.get('emma-space-device-fallback'),realContent);assert.equal(sharedStorage.get('emma-space-journal-draft-text'),realContent);assert.equal(sharedStorage.get('emma-space-signed-out'),'1');
+  const explicitIndex=app(new Map(),false,{...publishedDemo,location:{...publishedDemo.location,href:'https://grenthoxha.github.io/emma-space/index.html?demo=1'}});assert(explicitIndex.api.DEV_DEMO_ACTIVE);
+  console.log('PASS: real auth gate, logout/PIN/cross-tab, scoped local/hosted demo and separate demo storage/drafts/exit');
 })().catch(error=>{console.error(error);process.exitCode=1;});

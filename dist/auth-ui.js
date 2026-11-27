@@ -44,7 +44,7 @@
         element.querySelector('.auth-tabs').after(choice);
         if(typeof onDemo==='function'){
           const demo=document.createElement('div');demo.className='auth-demo-entry';
-          demo.innerHTML='<button type="button" data-auth-demo>Hap demon <span aria-hidden="true">→</span></button><small>Për punë lokale · të dhëna prove</small>';
+          demo.innerHTML='<button type="button" data-auth-demo>Hap demon <span aria-hidden="true">→</span></button><small>Provoje aplikacionin · të dhëna prove</small>';
           element.querySelector('.auth-tabs').after(demo);
         }
         if(mode==='login'){
