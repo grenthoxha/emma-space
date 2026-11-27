@@ -16,9 +16,9 @@ Create new user. The owner must enter the email and password themselves. The
 dashboard's “Auto confirm user?” option provisions the account directly without
 sending an email; this does not disable confirmation for public signups. Then use
 the same private UUID assignment above. A ready form has been opened for the
-owner, but no real credentials or administrator membership have been created yet.
+owner. Credentials are entered by the owner, never supplied to the operator.
 
-The owner email is not yet selected and no live administrator has been assigned. Creating a public account first does not make it the owner. There is no demo administrator or default password.
+The owner's chosen verified account has now been assigned as the sole enabled administrator after explicit confirmation, and its membership/RLS status was verified. Its email and credentials are not recorded in this public repository. Creating a public account first does not make it the owner. There is no demo administrator or default password.
 
 ## Deployed backend
 
