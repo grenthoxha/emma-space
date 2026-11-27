@@ -1,14 +1,20 @@
 # Emma's Space: authentication integration
 
-## What is implemented now
+## Current deployment: Supabase
+
+The app now uses the Supabase adapter configured in `auth-config.js`. See [SUPABASE.md](SUPABASE.md) for the live schema, verified policies, remaining Google/SMTP configuration, session handling and owner review. The older same-origin cookie transport below remains available for a future server deployment; it is not the current transport.
+
+Supabase uses PKCE and a browser-tab session in `sessionStorage`, rather than HttpOnly cookies. Auth requests bypass the service worker. No service-role key or Google secret is shipped. Only registration photos/consent and account state go online; diary/study/routine data stays local.
+
+## Original same-origin backend contract (alternative)
 
 Registration is the default first screen; existing users can select "Hyr". The forms include an optional "Vazhdo me Google" route, front-camera capture (not a file picker), explicit photo-upload consent, pending/rejected views, session checking, logout and a fail-closed app gate. Existing diary/study data is still device-local and is not included in any auth request.
 
-**There is no authentication server/database deployed or bundled here.** `auth-config.js` deliberately has an empty `apiBaseUrl`. Login and camera submission are disabled until a real backend is connected. There is no demo password, default administrator credential, local-storage approval flag, or PIN-only bypass. Existing personal device data is retained but not opened by the UI without a server-verified approved session.
+`auth-service.js` can alternatively target a same-origin `/api/auth` server using the contract below. That separate server is not deployed. There is no demo password, default administrator credential, local-storage approval flag, or PIN-only bypass. Existing personal device data is retained but not opened by the normal UI without a server-verified approved session.
 
 ### Isolated development and published demo
 
-The user-requested **Hap demon** button opens a separate development workspace. It requires `developmentDemo:true` and an empty `apiBaseUrl`. It is available from local `file:` URLs and exact loopback hosts (`localhost`, `127.0.0.1`, `[::1]`), and the owner-authorized preview at `publicDemoUrl: 'https://grenthoxha.github.io/emma-space/'`. The published option matches the exact HTTPS origin and app path (including explicit `index.html`); other domains/paths do not gain access from `?demo=1`. Configuring a backend disables both local and published demo. Disable `developmentDemo` and clear `publicDemoUrl` when retiring the preview.
+The user-requested **Hap demon** button opens a separate development workspace. It requires `developmentDemo:true` and an empty `apiBaseUrl`. It is available from local `file:` URLs and exact loopback hosts (`localhost`, `127.0.0.1`, `[::1]`), and the owner-authorized preview at `publicDemoUrl: 'https://grenthoxha.github.io/emma-space/'`. The published option matches the exact HTTPS origin and app path (including explicit `index.html`); other domains/paths do not gain access from `?demo=1`. A same-origin `apiBaseUrl` disables demo. The Supabase deployment deliberately retains the owner's requested isolated demo while provider setup is completed. Disable `developmentDemo` and clear `publicDemoUrl` when retiring the preview.
 
 Demo requires an explicit button click or the approved `?demo=1` URL, shows a persistent **Demo · Të dhëna prove** header with **Dil nga demo**, uses an app icon in place of the personal avatar, and never authenticates/approves an account or calls auth endpoints. The database name, legacy/fallback storage, diary drafts, signed-out marker and task-reminder keys all use an `emma-space-demo:` prefix. It cannot automatically read/import the real workspace or its drafts/recovery snapshot. Demo edits survive reload in their separate device-local database and are not synchronized/uploaded. Exiting saves the demo and navigates back to the ordinary registration/login URL without changing the real signed-out marker or session.
 

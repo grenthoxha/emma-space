@@ -1,5 +1,16 @@
 # Local PDF reader
 
+## Supabase Auth client
+
+`supabase.js` is the unmodified UMD distribution of `@supabase/supabase-js` 2.119.2
+from the official npm registry. The archive SHA-512 was checked against the
+registry integrity field before extraction. Exact version, archive integrity
+and direct dependency versions are pinned in `supabase.lock.json`.
+Upstream license: `SUPABASE-LICENSE.txt` (MIT), fetched from the matching release.
+Auth/session requests bypass the app's offline cache; only the SDK asset is cached.
+
+## PDF.js
+
 Mozilla PDF.js 5.6.205, from the bundled `pdfjs-dist` distribution, Apache-2.0.
 Original project: https://github.com/mozilla/pdf.js
 License: `PDFJS-LICENSE.txt`.

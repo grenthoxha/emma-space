@@ -2,6 +2,7 @@
 <html lang="sq">
 <head>
   <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#fae4e7">
   <meta name="description" content="Emma’s Space — aplikacioni privat i Emmës për studim, planifikim, ditar dhe rutina.">
@@ -5095,9 +5096,11 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   <script src="./space-model.js"></script>
   <script src="./journal-pdf.js"></script>
   <script src="./responsive.js"></script>
-  <script src="./auth-config.js?v=16"></script>
-  <script src="./auth-service.js"></script>
-  <script src="./auth-ui.js?v=16"></script>
+  <script src="./auth-config.js?v=17"></script>
+  <script src="./vendor/supabase.js"></script>
+  <script src="./supabase-auth.js?v=17"></script>
+  <script src="./auth-service.js?v=17"></script>
+  <script src="./auth-ui.js?v=17"></script>
   <script>
 (() => {
   "use strict";
@@ -5574,7 +5577,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   let autoLockTimer = null;
   let hiddenAt = 0;
   let authClient,authView=null,authStatus='anonymous',authEmail='',authEmailVerified=false,authNotice='',focusHydrated=false;
-  try{authClient=EmmaAuthService.create(window.EMMA_AUTH_CONFIG || {});}catch(error){authClient=EmmaAuthService.create({});authNotice=error.message;}
+  try{authClient=EmmaAuthService.create(DEV_DEMO_ACTIVE?{}:window.EMMA_AUTH_CONFIG || {});}catch(error){authClient=EmmaAuthService.create({});authNotice=error.message;}
 
   function hasWorkspaceAccess(){return DEV_DEMO_ACTIVE || authClient.isAuthenticated();}
   function demoUrl(active){const url=new URL(location.href);if(active)url.searchParams.set('demo','1');else url.searchParams.delete('demo');url.hash='home';return url.href;}
@@ -5583,7 +5586,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   function renderSignedOutScreen() {
     if(authView&&document.getElementById('auth-heading'))return;
     authView?.destroy();
-    authView=EmmaAuthUI.mount(document.getElementById('app'),{service:authClient,status:authStatus,email:authEmail,emailVerified:authEmailVerified,message:authNotice,onDemo:DEV_DEMO_AVAILABLE?openDevelopmentDemo:null,onGoogleRedirect:url=>{
+    authView=EmmaAuthUI.mount(document.getElementById('app'),{service:authClient,status:authStatus,email:authEmail,emailVerified:authEmailVerified,message:authNotice,onSessionReady:()=>{sessionExited=false;try{localStorage.removeItem(SIGNED_OUT_KEY);}catch{}},onDemo:DEV_DEMO_AVAILABLE?openDevelopmentDemo:null,onGoogleRedirect:url=>{
       try{localStorage.removeItem(SIGNED_OUT_KEY);}catch{}
       window.location.assign(url);
     },onAuthenticated:()=>{
@@ -10090,7 +10093,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
     if(EmmaSpaceModel.rollover(state,today())) await save();
     recoverySnapshot=await readRecoverySnapshot();
     if(DEV_DEMO_ACTIVE)sessionExited=false;
-    if(!DEV_DEMO_ACTIVE&&authClient.configured&&!sessionExited){try{const result=await authClient.session();authStatus=result.status;authEmail=result.email||'';authEmailVerified=result.emailVerified===true;}catch(error){authNotice=error.message;authStatus='anonymous';}}
+    if(!DEV_DEMO_ACTIVE&&authClient.configured&&(!sessionExited||window.EMMA_AUTH_CONFIG?.provider==='supabase'&&['code','error'].some(key=>new URL(location.href).searchParams.has(key)))){try{const result=await authClient.session();authStatus=result.status;authEmail=result.email||'';authEmailVerified=result.emailVerified===true;if(result.status!=='anonymous'){sessionExited=false;try{localStorage.removeItem(SIGNED_OUT_KEY);}catch{}}}catch(error){authNotice=error.message;authStatus='anonymous';}}
     if(sessionExited)authNotice='Për llogarinë ekzistuese, zgjidh “Hyr”.';
     appLocked = sessionExited || !!state.pin?.enabled;
     render();

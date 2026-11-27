@@ -1,7 +1,7 @@
 (function(root) {
   'use strict';
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function mount(element,{service,status='anonymous',email='',emailVerified=false,message='',onAuthenticated,onDemo=null,onGoogleRedirect=url=>root.location.assign(url)}) {
+  function mount(element,{service,status='anonymous',email='',emailVerified=false,message='',onAuthenticated,onSessionReady=()=>{},onDemo=null,onGoogleRedirect=url=>root.location.assign(url)}) {
     let mode=status==='photo_required'?'google-photo':['pending','rejected','login'].includes(status)?status:'register',step='account',destroyed=false,busy=false,cameraOpening=false,stream=null,photo=null,photoUrl='',capturedAt='',cameraEpoch=0;
     const field=(id,label,type,auto,extra='')=>`<label class="auth-field" for="${id}"><span>${label}</span><input id="${id}" name="${id}" type="${type}" autocomplete="${auto}" ${extra} required></label>`;
     function error(text){const target=element.querySelector('[data-auth-error]');if(target)target.textContent=text;}
@@ -34,7 +34,7 @@
       if(mode==='google-photo'){
         const form=element.querySelector('#auth-register-form');form.id='auth-google-photo-form';
         form.querySelector('#register-email').closest('label').remove();form.querySelector('.auth-password').remove();form.querySelector('#password-help').remove();form.querySelector('#register-confirm').closest('label').remove();
-        const verified=document.createElement('p');verified.className='auth-google-verified';verified.textContent=email?`Emaili u verifikua me Google: ${email}`:'Emaili u verifikua me Google.';form.prepend(verified);
+        const verified=document.createElement('p');verified.className='auth-google-verified';verified.textContent=email?`Emaili u verifikua: ${email}`:'Emaili u verifikua.';form.prepend(verified);
         form.querySelector('[type="submit"]').textContent='Dërgo fotografinë për miratim';
         const back=document.createElement('button');back.type='button';back.className='subtle-button auth-submit';back.textContent='Kthehu te hyrja';back.setAttribute('data-request-logout','');form.after(back);
       }
@@ -47,19 +47,32 @@
           demo.innerHTML='<button type="button" data-auth-demo>Hap demon <span aria-hidden="true">→</span></button><small>Provoje aplikacionin · të dhëna prove</small>';
           element.querySelector('.auth-tabs').after(demo);
         }
-        if(mode==='login'){
+        if(mode==='login'&&!service.emailVerificationFirst){
           const passkey=document.createElement('div');passkey.className='auth-passkey-choice';
           passkey.innerHTML=`<button type="button" class="auth-passkey-button" data-auth-passkey ${service.passkeyConfigured?'':'disabled'} aria-describedby="auth-passkey-help"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3M8 8v2m8-2v2m-5-1v5h2m-5 2c2 2 6 2 8 0"/></svg><span>Hyr me passkey</span></button><p id="auth-passkey-help">${service.passkeyConfigured?'Konfirmo me Face ID, Touch ID ose kodin e pajisjes.':'Face ID / passkey · aktivizohet pas lidhjes me serverin.'}</p>`;
           choice.prepend(passkey);
         }
       }
-      if(mode==='register')showStep('account',false);
+      if(mode==='register'){
+        showStep('account',false);
+        if(service.emailVerificationFirst){
+          element.querySelector('.auth-progress').hidden=true;
+          element.querySelector('[type="submit"]').textContent='Krijo llogarinë';
+          const hint=document.createElement('p');hint.className='auth-footnote';hint.textContent='Konfirmo emailin. Pastaj hyr dhe shkrep fotografinë për miratim.';
+          element.querySelector('#auth-register-form').after(hint);
+        }
+      }
+      if(mode==='pending'&&!emailVerified&&service.emailVerificationFirst){
+        element.querySelector('#auth-heading').textContent='Konfirmo emailin';
+        const paragraph=element.querySelector('.auth-pending-mark + p');
+        if(paragraph)paragraph.textContent='Hap mesazhin e verifikimit në email. Pastaj zgjidh “Hyr” dhe vazhdo me fotografinë për miratim.';
+      }
     }
     function showStep(next,focus=true){
       step=next;const form=element.querySelector('#auth-register-form');if(!form)return;
       const isPhoto=next==='photo',account=form.querySelector('[data-account-step]'),photoStep=form.querySelector('[data-photo-step]');
       account.hidden=isPhoto;photoStep.hidden=!isPhoto;photoStep.disabled=!isPhoto;
-      form.querySelector('[data-step-back]').hidden=!isPhoto;form.querySelector('[type="submit"]').textContent=isPhoto?'Dërgo kërkesën':'Vazhdo';
+      form.querySelector('[data-step-back]').hidden=!isPhoto;form.querySelector('[type="submit"]').textContent=isPhoto?'Dërgo kërkesën':service.emailVerificationFirst?'Krijo llogarinë':'Vazhdo';
       element.querySelector('.auth-google-choice').hidden=isPhoto;element.querySelector('.auth-tabs').hidden=isPhoto;
       const demo=element.querySelector('.auth-demo-entry');if(demo)demo.hidden=isPhoto;
       element.querySelector('[data-step-account]').toggleAttribute('aria-current',!isPhoto);element.querySelector('[data-step-photo]').toggleAttribute('aria-current',isPhoto);
@@ -68,7 +81,7 @@
       if(focus){const target=isPhoto?form.querySelector('[data-step-back]'):form.querySelector('#register-email');target.focus();}
     }
     function setBusy(value){busy=value;element.querySelector('.auth-card')?.setAttribute('aria-busy',String(value));const notice=element.querySelector('[data-auth-message]');if(notice)notice.textContent=value?'Po punohet…':'';element.querySelectorAll('button').forEach(button=>{button.disabled=value || (button.matches('[data-auth-google]')&&!service.googleConfigured) || (button.matches('[data-auth-passkey]')&&!service.passkeyConfigured) || (!service.configured&&!button.matches('[data-auth-tab],[data-reveal],[data-request-logout],[data-step-back],[data-auth-demo]')) || (button.matches('[data-camera-capture]')&&(!stream||cameraOpening));});}
-    function accept(result){if(destroyed)return;emailVerified=result.emailVerified===true;if(result.status==='approved'&&service.isAuthenticated()){stopCamera();clearPhoto();element.querySelectorAll('input[type="password"],input[autocomplete="current-password"]').forEach(input=>input.value='');onAuthenticated();}else if(result.status==='photo_required'){email=result.email||'';mode='google-photo';message='';draw();}else if(['pending','rejected'].includes(result.status)){mode=result.status;message='';draw();}else{mode='login';message='Kyçu për të vazhduar.';draw();}}
+    function accept(result){if(destroyed)return;if(['approved','photo_required','pending','rejected'].includes(result.status))onSessionReady();emailVerified=result.emailVerified===true;if(result.status==='approved'&&service.isAuthenticated()){stopCamera();clearPhoto();element.querySelectorAll('input[type="password"],input[autocomplete="current-password"]').forEach(input=>input.value='');onAuthenticated();}else if(result.status==='photo_required'){email=result.email||'';mode='google-photo';message='';draw();}else if(['pending','rejected'].includes(result.status)){mode=result.status;message='';draw();}else{mode='login';message='Kyçu për të vazhduar.';draw();}}
     async function startCamera(){
       if(cameraOpening)return;
       error('');stopCamera();clearPhoto();
@@ -126,8 +139,8 @@
       const form=event.target,google=form.id==='auth-google-photo-form',register=google||form.id==='auth-register-form';
       const password=google?'':form.querySelector(register?'#register-password':'#login-password').value,address=google?'':form.querySelector(register?'#register-email':'#login-email').value;
       if(register&&!google&&password!==form.querySelector('#register-confirm').value){error('Fjalëkalimet nuk përputhen.');return;}
-      if(register&&!google&&step==='account'){showStep('photo');return;}
-      if(register&&!photo){error('Hap kamerën dhe shkrep fotografinë.');return;}
+      if(register&&!google&&step==='account'&&!service.emailVerificationFirst){showStep('photo');return;}
+      if(register&&!photo&&(google||!service.emailVerificationFirst)){error('Hap kamerën dhe shkrep fotografinë.');return;}
       setBusy(true);
       try{accept(google?await service.completeGoogleRegistration({photo,capturedAt,consent:form.querySelector('#photo-consent').checked}):register?await service.register({email:address,password,photo,capturedAt,consent:form.querySelector('#photo-consent').checked}):await service.login(address,password));}
       catch(e){if(!destroyed){error(e.message);if(register&&!google)showStep('account');}}

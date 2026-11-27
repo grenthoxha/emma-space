@@ -8,6 +8,10 @@
   const validEmail=value=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)&&value.length<=254;
   const approved=user=>!!(user&&typeof user.id==='string'&&user.id&&validEmail(email(user.email))&&user.role==='emma'&&user.status==='approved'&&user.emailVerified===true&&user.registrationComplete!==false&&(user.provider!=='google'||user.registrationComplete===true));
   function create(config={},env={}) {
+    if(config.provider==='supabase'){
+      if(!root.EmmaSupabaseAuth)throw new AuthError('NOT_CONFIGURED','Biblioteka e hyrjes nuk u ngarkua.');
+      return root.EmmaSupabaseAuth.create(config,env);
+    }
     const location=env.location || root.location || {},fetcher=env.fetch || root.fetch?.bind(root);
     let base='',csrf='',user=null,generation=0;
     if(config.apiBaseUrl) {

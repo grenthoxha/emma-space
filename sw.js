@@ -1,4 +1,4 @@
-const CACHE_NAME = "emma-space-v16-published-demo";
+const CACHE_NAME = "emma-space-v17-supabase";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,9 +9,11 @@ const APP_SHELL = [
   "./responsive.css",
   "./responsive.js",
   "./auth.css",
-  "./auth-config.js?v=16",
-  "./auth-service.js",
-  "./auth-ui.js?v=16",
+  "./auth-config.js?v=17",
+  "./vendor/supabase.js",
+  "./supabase-auth.js?v=17",
+  "./auth-service.js?v=17",
+  "./auth-ui.js?v=17",
   "./vendor/pdf.js",
   "./vendor/pdf.worker.js",
   "./manifest.webmanifest",
@@ -39,6 +41,7 @@ self.addEventListener("fetch", event => {
   // Never cache credentials, session checks, registration or private auth APIs.
   // Reserve /api/ for the future same-origin backend; no app-shell fallback here.
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin || ['code','error','access_token','refresh_token','token_hash'].some(key => url.searchParams.has(key))) return;
   if (event.request.cache === 'no-store' || (url.origin === self.location.origin && /\/(?:api|auth)(?:\/|$)/.test(url.pathname))) return;
   if (event.request.method !== "GET") return;
 

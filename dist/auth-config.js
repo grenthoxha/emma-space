@@ -1,8 +1,17 @@
-/* Public configuration only. Never put database passwords or service/admin keys here.
-   After implementing docs/AUTH-BACKEND.md, set apiBaseUrl to '/api/auth'.
-   Leave empty until that server exists. The optional development demo is a
-   separate workspace; it never approves or authenticates a real account.
-   publicDemoUrl enables that same isolated preview on one explicit HTTPS app URL.
-   Enable Google only after server-side OAuth setup. Never put its secret here.
-   Enable passkeys only after server verification + protected enrollment/recovery. */
-window.EMMA_AUTH_CONFIG = Object.freeze({apiBaseUrl: '', googleEnabled: false, passkeyEnabled: false, developmentDemo: true, publicDemoUrl: 'https://grenthoxha.github.io/emma-space/', timeoutMs: 15000});
+/* Public configuration only: the publishable key is designed for browsers.
+   Never add database passwords, service-role keys or a Google client secret.
+   See docs/SUPABASE.md for deployed schema, owner review and pending provider setup.
+   The explicitly enabled demo keeps a separate database and never authenticates.
+   Enable Google only after its credentials are configured inside Supabase. */
+window.EMMA_AUTH_CONFIG = Object.freeze({
+  provider: 'supabase',
+  supabaseUrl: 'https://roexzfpbvbmvhwzsycsw.supabase.co',
+  supabasePublishableKey: 'sb_publishable_RYEXZ-FLYcSklDSQnfcOpg_CHjkuO_j',
+  redirectUrl: 'https://grenthoxha.github.io/emma-space/',
+  apiBaseUrl: '',
+  googleEnabled: false,
+  passkeyEnabled: false,
+  developmentDemo: true,
+  publicDemoUrl: 'https://grenthoxha.github.io/emma-space/',
+  timeoutMs: 15000
+});

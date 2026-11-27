@@ -1,0 +1,14 @@
+{
+  "name": "@supabase/supabase-js",
+  "version": "2.119.2",
+  "registry": "https://registry.npmjs.org",
+  "tarball": "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.119.2.tgz",
+  "integrity": "sha512-4HvF4G2DwdqjmwPBpz9RHnXWfdK0wSkw4yBhxe64CdeF8gdxsTF9WZuHFuNWtQnHllq71ZDyAghr4Q8nC0m/NA==",
+  "dependencies": {
+    "@supabase/auth-js": "2.119.2",
+    "@supabase/storage-js": "2.119.2",
+    "@supabase/realtime-js": "2.119.2",
+    "@supabase/functions-js": "2.119.2",
+    "@supabase/postgrest-js": "2.119.2"
+  }
+}

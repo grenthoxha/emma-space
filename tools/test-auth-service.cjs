@@ -79,10 +79,11 @@ const failure=code=>error=>error.code===code;
   const lateRequest=late.loginPasskey();while(!verifyFinish)await new Promise(resolve=>setImmediate(resolve));late.cancelPasskey();verifyFinish(response({user:account}));await assert.rejects(()=>lateRequest,failure('PASSKEY_CANCELED'));assert(!late.isAuthenticated());
   const root=path.resolve(__dirname,'..');for(const name of ['auth-config.js','auth-service.js','auth-ui.js'])new vm.Script(fs.readFileSync(path.join(root,name),'utf8'),{filename:name});
   const source=fs.readFileSync(path.join(root,'index.html'),'utf8');assert(!source.includes('btn-return-session'));assert(!source.includes('Vazhdo si Emma'));assert(source.includes('!hasWorkspaceAccess() || sessionExited'));
-  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(sw.includes("event.request.cache === 'no-store'"));assert(sw.includes('"./auth-service.js"'));
+  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(sw.includes("event.request.cache === 'no-store'"));
+  const authScript=source.match(/<script src="(\.\/auth-service\.js[^\"]*)"/)[1];assert(sw.includes(JSON.stringify(authScript)),'The exact auth script URL must be cached for offline loading');
   assert(sw.includes("response.headers.get('Cache-Control')"));assert(sw.includes('no-store|private'));
   const workerHandlers={};vm.runInNewContext(sw,{URL,self:{location:{origin:location.origin},addEventListener:(type,fn)=>workerHandlers[type]=fn}});
-  for(const request of [{url:location.origin+'/api/auth/session',method:'GET',cache:'default'},{url:location.origin+'/custom-session',method:'GET',cache:'no-store'},{url:location.origin+'/api/auth/login',method:'POST',cache:'default'}]){
+  for(const request of [{url:location.origin+'/api/auth/session',method:'GET',cache:'default'},{url:location.origin+'/custom-session',method:'GET',cache:'no-store'},{url:location.origin+'/api/auth/login',method:'POST',cache:'default'},{url:'https://project.supabase.co/auth/v1/user',method:'GET',cache:'default'},{url:location.origin+'/?code=synthetic-code',method:'GET',cache:'default',mode:'navigate'}]){
     let intercepted=false;workerHandlers.fetch({request,respondWith(){intercepted=true;}});assert(!intercepted,'Auth traffic must bypass the service worker entirely');
   }
   assert(!fs.readFileSync(path.join(root,'auth-service.js'),'utf8').includes('localStorage'));
