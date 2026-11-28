@@ -1,4 +1,4 @@
-const CACHE_NAME = "emma-space-v18-administration";
+const CACHE_NAME = "emma-space-v19-personal-tools";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,18 +6,23 @@ const APP_SHELL = [
   "./journal-editor.js",
   "./journal-pdf.js",
   "./space-model.js",
+  "./account-storage.js?v=19",
+  "./life-tools.js?v=19",
+  "./reminders.js?v=19",
+  "./app-improvements.js?v=19",
+  "./improvements.css?v=19",
   "./responsive.css",
   "./responsive.js",
   "./auth.css",
-  "./auth-config.js?v=18",
+  "./auth-config.js?v=19",
   "./admin.html",
   "./admin.css?v=18",
-  "./admin-service.js?v=18",
-  "./admin-ui.js?v=18",
+  "./admin-service.js?v=19",
+  "./admin-ui.js?v=19",
   "./vendor/supabase.js",
-  "./supabase-auth.js?v=17",
+  "./supabase-auth.js?v=19",
   "./auth-service.js?v=17",
-  "./auth-ui.js?v=17",
+  "./auth-ui.js?v=19",
   "./vendor/pdf.js",
   "./vendor/pdf.worker.js",
   "./manifest.webmanifest",
@@ -29,6 +34,25 @@ const APP_SHELL = [
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
   self.skipWaiting();
+});
+
+self.addEventListener('push',event=>{
+  let payload={};try{payload=event.data?.json()||{};}catch{}
+  const base=new URL('./',self.registration.scope);
+  let target=new URL('#study',base);
+  try{const candidate=new URL(payload.url,base);if(candidate.origin===base.origin&&candidate.pathname===base.pathname)target=candidate;}catch{}
+  event.waitUntil(self.registration.showNotification('Emma’s Space',{
+    body:typeof payload.body==='string'?payload.body.slice(0,180):'Ke një kujtesë të re.',
+    icon:new URL('icon-192.png',base).href,badge:new URL('icon-192.png',base).href,
+    tag:typeof payload.tag==='string'?payload.tag.slice(0,240):'emma-reminder',
+    data:{url:target.href}
+  }));
+});
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();
+  const base=new URL('./',self.registration.scope);let target=new URL('#study',base);
+  try{const candidate=new URL(event.notification.data?.url);if(candidate.origin===base.origin&&candidate.pathname===base.pathname)target=candidate;}catch{}
+  event.waitUntil((async()=>{const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});const existing=windows.find(client=>client.url.startsWith(base.href));if(existing){await existing.navigate(target.href);await existing.focus();}else await self.clients.openWindow(target.href);})());
 });
 
 self.addEventListener("activate", event => {

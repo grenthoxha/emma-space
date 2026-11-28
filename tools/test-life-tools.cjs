@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),tools=require('../life-tools');
+const lesson={id:'math',day:1,subject:'Matematikë',startTime:'09:00',endTime:'09:45',room:'2',isExample:false};
+const schedule={lessons:[lesson],exceptions:[]},monday=new Date('2026-11-30T08:00:00');
+assert.equal(tools.lessonsOn(schedule,monday).length,1);
+schedule.exceptions=tools.exceptions([{id:'off',date:'2026-11-30',kind:'day_off'}],schedule.lessons);assert.equal(tools.lessonsOn(schedule,monday).length,0);assert.equal(tools.lessonsOn(schedule,new Date('2026-12-07T08:00:00')).length,1);
+schedule.exceptions=tools.exceptions([{id:'move',date:'2026-11-30',kind:'replace',lessonId:'math',lesson:{subject:'Kimi',startTime:'10:00',endTime:'10:45',room:'3'}}],schedule.lessons);assert.equal(tools.lessonsOn(schedule,monday)[0].subject,'Kimi');assert.equal(schedule.lessons[0].subject,'Matematikë');
+assert.equal(tools.exceptions([{id:'bad',date:'2026-02-30',kind:'day_off'}],schedule.lessons).length,0);
+assert.equal(tools.exceptions([{id:'bad',date:'2026-11-30',kind:'cancel',lessonId:'missing'}],schedule.lessons).length,0);
+const state={schoolSchedule:schedule,studyTasks:[{id:'t',title:'Përsërit kapitullin',dueDate:'2026-11-30',dueTime:'11:00',completed:false}],exams:[{id:'e',title:'Provimi',dateTime:'2026-11-30T13:00'}],journalPages:[{id:'j',title:'Kujtim',body:'Një shëtitje e qetë',photos:[]}],subjects:[],subjectNotes:{},flashcards:[],customRoutines:[],priorities:[],removedDefaultRoutines:[]};
+assert.equal(tools.search(state,'shetitje')[0].id,'j');assert.equal(tools.search(state,'kapitullin')[0].type,'Detyrë');
+const jobs=tools.jobs(state,monday);assert.equal(jobs.length,3);assert(jobs.every(j=>!JSON.stringify(j).includes('kapitullin')&&!JSON.stringify(j).includes('shëtitje')),'Push metadata must not contain private text');assert.equal(jobs.filter(j=>j.kind==='lesson').length,1);assert.deepEqual(jobs,tools.jobs(state,monday));
+const before=structuredClone(state);state.journalPages=[];const change=tools.deletion(before,state);state.studyTasks.push({id:'later',title:'Newer work'});assert.equal(tools.restore(state,change),1);assert.equal(state.journalPages[0].id,'j');assert(state.studyTasks.some(t=>t.id==='later'));assert.equal(tools.restore(state,change),0,'Undo is idempotent');
+const now=Date.now();assert(tools.backupDue({firstUsedAt:now-8*86400000},now));assert(!tools.backupDue({firstUsedAt:now-8*86400000,backupDismissedDate:tools.dateKey(now)},now));assert(!tools.backupDue({lastBackupAt:now},now));assert.equal(tools.counts(state).photos,0);
+console.log('PASS: date-specific timetable changes, accent-insensitive private search, metadata-only reminders, non-destructive undo and weekly backup reminder');

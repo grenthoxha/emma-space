@@ -3,9 +3,14 @@ const {create}=require('../supabase-auth');
 const config={supabaseUrl:'https://roexzfpbvbmvhwzsycsw.supabase.co',supabasePublishableKey:'sb_publishable_test',redirectUrl:'https://grenthoxha.github.io/emma-space/',googleEnabled:true};
 const uid='11111111-eeee-4000-8000-000000000001';
 function fixture(){
-  const saved=new Map(),calls=[],state={session:null,user:{id:uid,email:'synthetic@example.invalid',email_confirmed_at:'2026-01-01'},request:null,error:null};
+  const saved=new Map(),calls=[],state={session:null,user:{id:uid,email:'synthetic@example.invalid',email_confirmed_at:'2026-01-01'},request:null,error:null,admin:false};
   let options;
-  const client={auth:{
+  const client={rpc:async name=>{assert.equal(name,'emma_am_i_administrator');return {data:state.admin};},auth:{
+    onAuthStateChange:fn=>{state.authEvent=fn;return {data:{subscription:{unsubscribe(){}}}};},
+    resend:async payload=>{calls.push(['resend',payload]);return {};},
+    resetPasswordForEmail:async(email,options)=>{calls.push(['reset',email,options]);return {};},
+    updateUser:async payload=>{calls.push(['password',payload]);return {};},
+    verifyOtp:async payload=>{calls.push(['otp',payload]);state.session={};return {data:{session:{}}};},
     getSession:async()=>({data:{session:state.session}}),getUser:async()=>({data:{user:state.user}}),
     signInWithPassword:async payload=>{calls.push(['login',payload]);if(state.loginWait)await state.loginWait;state.session={};return {error:state.error};},
     signUp:async payload=>{calls.push(['signup',payload]);return {data:{session:null},error:state.error};},
@@ -42,5 +47,10 @@ function fixture(){
   f=fixture();s=f.service();let resolve;f.state.loginWait=new Promise(r=>resolve=r);const pending=s.login('synthetic@example.invalid','test');s.forget();resolve();await assert.rejects(pending,{code:'SESSION_ENDED'});assert(!s.isAuthenticated());
   assert.throws(()=>create({...config,supabasePublishableKey:'sb_secret_never'},f.env),{code:'INVALID_CONFIG'});
   assert.throws(()=>create({...config,supabaseUrl:'https://evil.example'},f.env),{code:'INVALID_CONFIG'});
-  console.log('PASS: Supabase verification, PKCE callback, consent/photo, owner approval, revocation, session isolation, logout and stale requests');
+  f=fixture();s=f.service();f.state.session={};f.state.admin=true;assert.equal((await s.session()).status,'administrator');assert(!s.isAuthenticated(),'Administrator must not open a personal workspace');assert.equal(s.getIdentity(),null);
+  f=fixture();s=f.service();await s.resendConfirmation('synthetic@example.invalid');await s.forgotPassword('synthetic@example.invalid');assert.equal(f.calls.find(c=>c[0]==='resend')[1].type,'signup');assert.equal(f.calls.find(c=>c[0]==='reset')[2].redirectTo,config.redirectUrl);await assert.rejects(s.updatePassword('synthetic-new-password'),{code:'VALIDATION'});
+  f.state.session={};f.state.authEvent('PASSWORD_RECOVERY',{});assert.equal((await s.session()).status,'password_recovery');assert(!s.isAuthenticated());await s.updatePassword('synthetic-new-password');assert.equal(f.calls.find(c=>c[0]==='password')[1].password,'synthetic-new-password');assert(!s.isAuthenticated());
+  f=fixture();f.env.location.href=config.redirectUrl+'?token_hash='+'a'.repeat(64)+'&type=recovery';s=f.service();assert.equal((await s.session()).status,'password_recovery');assert.equal(f.calls.find(c=>c[0]==='otp')[1].type,'recovery');assert.equal(f.calls.find(c=>c[0]==='history')[1],config.redirectUrl);
+  f=fixture();f.env.location.href=config.redirectUrl+'?type=recovery';s=f.service();assert.equal((await s.session()).status,'anonymous','A URL flag alone cannot authorize password recovery');
+  console.log('PASS: Supabase roles, verified recovery/resend, callback cleanup, consent/photo, approval, revocation, account identity, logout and stale requests');
 })().catch(e=>{console.error(e);process.exitCode=1;});

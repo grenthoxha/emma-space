@@ -1,6 +1,6 @@
 (function(root){
   'use strict';
-  const KEY='emma-space-admin-session';
+  const KEY='emma-space-supabase-session';
   class AdminError extends Error{constructor(code,message){super(message);this.code=code;}}
   function create(config={},env={}){
     const sdk=env.sdk||root.supabase,location=env.location||root.location;
@@ -23,6 +23,7 @@
       return new AdminError('NETWORK','Veprimi nuk u krye. Kontrollo lidhjen dhe provo përsëri.');
     }
     async function identity(start){
+      if(!storage.getItem(KEY)&&client.auth.setSession){try{const old=JSON.parse(storage.getItem('emma-space-admin-session')||'null');if(old?.access_token&&old?.refresh_token){const migrated=await client.auth.setSession({access_token:old.access_token,refresh_token:old.refresh_token});if(!migrated.error)storage.removeItem('emma-space-admin-session');}}catch{}}
       const local=await client.auth.getSession();unchanged(start);if(local.error)throw failure(local.error);
       if(!local.data?.session)return null;
       const result=await client.auth.getUser();unchanged(start);if(result.error)throw failure(result.error);
@@ -57,7 +58,7 @@
         const result=await client.from('emma_access_requests').update({status}).eq('user_id',userId).eq('status',previousStatus).select('user_id,status');unchanged(start);if(result.error)throw failure(result.error);
         if(result.data?.length!==1||result.data[0].status!==status)throw new AdminError('CHANGED','Kërkesa ka ndryshuar. Rifresko listën dhe shikoje përsëri.');return result.data[0];
       },
-      async logout(){++epoch;try{const result=await client.auth.signOut({scope:'local'});if(result.error)throw failure(result.error);}finally{for(const suffix of ['','-code-verifier','-user'])storage.removeItem(KEY+suffix);++epoch;}},
+      async logout(){++epoch;try{const result=await client.auth.signOut({scope:'local'});if(result.error)throw failure(result.error);}finally{for(const base of [KEY,'emma-space-admin-session'])for(const suffix of ['','-code-verifier','-user'])storage.removeItem(base+suffix);++epoch;}},
       cancel(){++epoch;}
     };
   }

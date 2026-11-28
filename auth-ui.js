@@ -1,8 +1,8 @@
 (function(root) {
   'use strict';
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function mount(element,{service,status='anonymous',email='',emailVerified=false,message='',onAuthenticated,onSessionReady=()=>{},onDemo=null,onGoogleRedirect=url=>root.location.assign(url)}) {
-    let mode=status==='photo_required'?'google-photo':['pending','rejected','login'].includes(status)?status:'register',step='account',destroyed=false,busy=false,cameraOpening=false,stream=null,photo=null,photoUrl='',capturedAt='',cameraEpoch=0;
+  function mount(element,{service,status='anonymous',email='',emailVerified=false,message='',onAuthenticated,onAdministrator=()=>root.location.assign(new URL('./admin.html',root.location.href)),onSessionReady=()=>{},onDemo=null,onGoogleRedirect=url=>root.location.assign(url)}) {
+    let mode=status==='photo_required'?'google-photo':['pending','rejected','login','password_recovery'].includes(status)?status:'register',step='account',destroyed=false,busy=false,cameraOpening=false,stream=null,photo=null,photoUrl='',capturedAt='',cameraEpoch=0;
     const field=(id,label,type,auto,extra='')=>`<label class="auth-field" for="${id}"><span>${label}</span><input id="${id}" name="${id}" type="${type}" autocomplete="${auto}" ${extra} required></label>`;
     function error(text){const target=element.querySelector('[data-auth-error]');if(target)target.textContent=text;}
     function stopCamera(){cameraEpoch++;cameraOpening=false;stream?.getTracks().forEach(track=>track.stop());stream=null;const video=element.querySelector('video');if(video){video.srcObject=null;video.hidden=true;}const capture=element.querySelector('[data-camera-capture]'),start=element.querySelector('[data-camera-start]'),cancel=element.querySelector('[data-camera-cancel]'),placeholder=element.querySelector('[data-camera-placeholder]');if(capture)capture.disabled=true;if(start)start.disabled=busy||!service.configured;if(cancel)cancel.hidden=true;if(placeholder)placeholder.hidden=!!photo;}
@@ -10,13 +10,14 @@
     function drawBase(){
       stopCamera();clearPhoto();busy=false;
       const setup=service.configured?'':`<div class="auth-setup" role="status"><span class="auth-status-dot" aria-hidden="true"></span><span>Hyrja aktivizohet pasi të lidhet serveri.</span></div>`;
-      const title=mode==='register'?'Regjistrohu':mode==='google-photo'?'Përfundo regjistrimin':mode==='pending'?'Në pritje të miratimit':mode==='rejected'?'Kërkesa nuk u miratua':'Kyçu';
+      const title=mode==='register'?'Regjistrohu':mode==='google-photo'?'Përfundo regjistrimin':mode==='pending'?'Në pritje të miratimit':mode==='rejected'?'Kërkesa nuk u miratua':mode==='forgot'?'Rikthe hyrjen':mode==='password_recovery'?'Fjalëkalimi i ri':'Kyçu';
       const tabs=['login','register'].includes(mode)?`<div class="auth-tabs" role="group" aria-label="Hyrja dhe regjistrimi"><button type="button" data-auth-tab="register" aria-pressed="${mode==='register'}">Regjistrohu</button><button type="button" data-auth-tab="login" aria-pressed="${mode==='login'}">Hyr</button></div>`:'';
       const disabled=service.configured?'':'disabled';
       const login=`<form id="auth-login-form">${field('login-email','Emaili','email','username','maxlength="254" inputmode="email" autocapitalize="none" spellcheck="false"')}<div class="auth-password">${field('login-password','Fjalëkalimi','password','current-password','maxlength="128"')}<button type="button" class="auth-reveal" data-reveal="login-password" aria-label="Shfaq fjalëkalimin" aria-pressed="false">Shfaq</button></div><button type="submit" class="primary-button auth-submit" ${disabled}>Kyçu</button></form><p class="auth-footnote">Regjistrimi nuk e hap automatikisht aplikacionin.</p>`;
       const register=`<form id="auth-register-form">${field('register-email','Emaili yt','email','email','maxlength="254" inputmode="email" autocapitalize="none" spellcheck="false"')}<div class="auth-password">${field('register-password','Fjalëkalimi','password','new-password','minlength="12" maxlength="128" aria-describedby="password-help"')}<button type="button" class="auth-reveal" data-reveal="register-password" aria-label="Shfaq fjalëkalimin" aria-pressed="false">Shfaq</button></div><small id="password-help">12–128 shenja. Mund të përdorësh një fjali të gjatë.</small>${field('register-confirm','Përsërite fjalëkalimin','password','new-password','minlength="12" maxlength="128"')}<fieldset class="auth-camera"><legend>Fotografi nga kamera</legend><div class="auth-camera-frame"><div data-camera-placeholder>Fotografia e sapobërë shfaqet këtu.</div><video autoplay muted playsinline hidden aria-label="Pamja nga kamera"></video><img hidden alt="Fotografia për kërkesën e regjistrimit"></div><p>Pa ngarkim nga galeria. Kamera hapet vetëm kur e lejon ti.</p><div class="auth-camera-actions"><button type="button" class="subtle-button" data-camera-start ${disabled}>Hap kamerën</button><button type="button" class="subtle-button" data-camera-capture disabled>Shkrep fotografinë</button></div><small data-camera-status role="status"></small></fieldset><label class="auth-consent"><input type="checkbox" id="photo-consent" required><span>Pajtohem që fotografia t’i dërgohet personit që shqyrton kërkesën. Ditari im nuk dërgohet.</span></label><button type="submit" class="primary-button auth-submit" ${disabled}>Dërgo kërkesën</button></form>`;
+      const auxiliary=mode==='forgot'?`<form id="auth-recovery-request">${field('recovery-email','Emaili','email','username','maxlength="254" inputmode="email" autocapitalize="none"')}<button type="submit" class="primary-button auth-submit" ${disabled}>Dërgo lidhjen e rikthimit</button><button type="button" class="subtle-button auth-submit" data-resend ${disabled}>Ridërgo konfirmimin e emailit</button></form><button type="button" class="subtle-button auth-submit" data-back-login>Kthehu te hyrja</button>`:mode==='password_recovery'?`<form id="auth-new-password">${field('new-password','Fjalëkalimi i ri','password','new-password','minlength="12" maxlength="128"')}${field('new-password-confirm','Përsërite fjalëkalimin','password','new-password','minlength="12" maxlength="128"')}<button type="submit" class="primary-button auth-submit">Ruaj fjalëkalimin</button></form>`:'';
       const waiting=`<div class="auth-pending-mark" aria-hidden="true">${mode==='pending'?'◷':'—'}</div><p>${mode==='pending'?`Kërkesa jote pret shqyrtimin. ${emailVerified?'':'Verifiko adresën nga emaili që merr. '}Deri në miratim, hapësira personale mbetet e mbyllur.`:'Kjo kërkesë nuk ka leje të hapë hapësirën personale.'}</p><button type="button" class="primary-button auth-submit" data-check-status ${disabled}>Kontrollo gjendjen</button><button type="button" class="subtle-button auth-submit" data-request-logout>Kthehu te hyrja</button>`;
-      element.innerHTML=`<main class="auth-screen"><section class="auth-card" aria-labelledby="auth-heading"><div class="auth-brand"><span class="auth-brand-mark" aria-hidden="true">E<span class="auth-brand-spark">✦</span></span><span>Emma’s Space</span></div><p class="auth-exclusive">Lejohet vetëm llogaria e Emmës.</p><h1 id="auth-heading">${title}</h1>${tabs}<p class="auth-message" role="status" data-auth-message>${escape(message)}</p><p class="auth-error" role="alert" data-auth-error></p>${['pending','rejected'].includes(mode)?waiting:['register','google-photo'].includes(mode)?register:login}${setup}<p class="auth-private-note"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> Hapësira jote private</p></section></main>`;
+      element.innerHTML=`<main class="auth-screen"><section class="auth-card" aria-labelledby="auth-heading"><div class="auth-brand"><span class="auth-brand-mark" aria-hidden="true">E<span class="auth-brand-spark">✦</span></span><span>Emma’s Space</span></div><p class="auth-exclusive">Lejohet vetëm llogaria e Emmës.</p><h1 id="auth-heading">${title}</h1>${tabs}<p class="auth-message" role="status" data-auth-message>${escape(message)}</p><p class="auth-error" role="alert" data-auth-error></p>${auxiliary||(['pending','rejected'].includes(mode)?waiting:['register','google-photo'].includes(mode)?register:login)}${setup}<p class="auth-private-note"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> Hapësira jote private</p></section></main>`;
     }
     function draw(){
       drawBase();
@@ -53,6 +54,9 @@
           choice.prepend(passkey);
         }
       }
+      if(mode==='login'&&service.forgotPassword){const b=document.createElement('button');b.type='button';b.className='subtle-button auth-submit';b.dataset.forgot='';b.textContent='Harrova fjalëkalimin / Konfirmo emailin';element.querySelector('#auth-login-form').after(b);}
+      if(mode==='forgot'&&email)element.querySelector('#recovery-email').value=email;
+      if(mode==='pending'&&!emailVerified&&service.resendConfirmation&&email){const b=document.createElement('button');b.type='button';b.className='subtle-button auth-submit';b.dataset.resend='';b.textContent='Ridërgo emailin e konfirmimit';element.querySelector('[data-check-status]').after(b);}
       if(mode==='register'){
         showStep('account',false);
         if(service.emailVerificationFirst){
@@ -81,7 +85,21 @@
       if(focus){const target=isPhoto?form.querySelector('[data-step-back]'):form.querySelector('#register-email');target.focus();}
     }
     function setBusy(value){busy=value;element.querySelector('.auth-card')?.setAttribute('aria-busy',String(value));const notice=element.querySelector('[data-auth-message]');if(notice)notice.textContent=value?'Po punohet…':'';element.querySelectorAll('button').forEach(button=>{button.disabled=value || (button.matches('[data-auth-google]')&&!service.googleConfigured) || (button.matches('[data-auth-passkey]')&&!service.passkeyConfigured) || (!service.configured&&!button.matches('[data-auth-tab],[data-reveal],[data-request-logout],[data-step-back],[data-auth-demo]')) || (button.matches('[data-camera-capture]')&&(!stream||cameraOpening));});}
-    function accept(result){if(destroyed)return;if(['approved','photo_required','pending','rejected'].includes(result.status))onSessionReady();emailVerified=result.emailVerified===true;if(result.status==='approved'&&service.isAuthenticated()){stopCamera();clearPhoto();element.querySelectorAll('input[type="password"],input[autocomplete="current-password"]').forEach(input=>input.value='');onAuthenticated();}else if(result.status==='photo_required'){email=result.email||'';mode='google-photo';message='';draw();}else if(['pending','rejected'].includes(result.status)){mode=result.status;message='';draw();}else{mode='login';message='Kyçu për të vazhduar.';draw();}}
+    async function accept(result){
+      if(destroyed)return;if(result.email)email=result.email;
+      if(['approved','administrator','photo_required','pending','rejected','password_recovery'].includes(result.status))onSessionReady();
+      emailVerified=result.emailVerified===true;
+      if(result.status==='administrator'){stopCamera();clearPhoto();await onAdministrator(result);return;}
+      if(result.status==='password_recovery'){mode='password_recovery';message='';draw();return;}
+      if(result.status==='approved'&&service.isAuthenticated()){stopCamera();clearPhoto();element.querySelectorAll('input[type="password"]').forEach(input=>input.value='');await onAuthenticated(result);}
+      else if(result.status==='photo_required'){mode='google-photo';message='';draw();}
+      else if(['pending','rejected'].includes(result.status)){mode=result.status;message='';draw();}
+      else{mode='login';message='Kyçu për të vazhduar.';draw();}
+    }
+    async function checkApproval(){
+      if(destroyed||document.hidden||busy||mode!=='pending'||!emailVerified||root.navigator?.onLine===false)return;
+      setBusy(true);try{const result=await service.session();if(result.status!=='pending')await accept(result);}catch(e){if(!destroyed)error(e.message);}finally{if(!destroyed)setBusy(false);}
+    }
     async function startCamera(){
       if(cameraOpening)return;
       error('');stopCamera();clearPhoto();
@@ -115,11 +133,14 @@
       const tab=event.target.closest('[data-auth-tab]');if(tab&&!busy){mode=tab.dataset.authTab;message='';draw();element.querySelector(`[data-auth-tab="${mode}"]`)?.focus();return;}
       const reveal=event.target.closest('[data-reveal]');if(reveal){const input=element.querySelector('#'+reveal.dataset.reveal),show=input.type==='password';input.type=show?'text':'password';reveal.textContent=show?'Fshih':'Shfaq';reveal.setAttribute('aria-pressed',String(show));reveal.setAttribute('aria-label',show?'Fshih fjalëkalimin':'Shfaq fjalëkalimin');return;}
       if(busy)return;
+      if(event.target.closest('[data-forgot]')){email=element.querySelector('#login-email')?.value||email;mode='forgot';message='';draw();return;}
+      if(event.target.closest('[data-back-login]')){mode='login';message='';draw();return;}
+      if(event.target.closest('[data-resend]')){const address=element.querySelector('#recovery-email')?.value||email;setBusy(true);error('');try{await service.resendConfirmation(address);if(!destroyed){message='Nëse adresa pret konfirmim, lidhja do të dërgohet në email.';draw();}}catch(e){error(e.message);}finally{if(!destroyed)setBusy(false);}return;}
       if(event.target.closest('[data-auth-demo]')&&typeof onDemo==='function'){stopCamera();clearPhoto();onDemo();return;}
       if(event.target.closest('[data-step-back]')){stopCamera();error('');const cameraStatus=element.querySelector('[data-camera-status]');if(cameraStatus)cameraStatus.textContent=photo?'Fotografia është gati.':'Kamera është e mbyllur.';showStep('account');return;}
       if(event.target.closest('[data-auth-passkey]')){
         setBusy(true);error('');
-        try{accept(await service.loginPasskey());}catch(e){if(!destroyed)error(e.message);}
+        try{await accept(await service.loginPasskey());}catch(e){if(!destroyed)error(e.message);}
         finally{if(!destroyed)setBusy(false);}return;
       }
       if(event.target.closest('[data-auth-google]')){
@@ -131,10 +152,16 @@
       }
       if(event.target.closest('[data-camera-start]')){await startCamera();return;}
       if(event.target.closest('[data-camera-capture]')){await capture();return;}
-      if(event.target.closest('[data-check-status]')){setBusy(true);try{const result=await service.session();if(result.status==='pending')error('Kërkesa ende pret miratimin.');else accept(result);}catch(e){error(e.message);}finally{if(!destroyed)setBusy(false);}return;}
+      if(event.target.closest('[data-check-status]')){setBusy(true);try{const result=await service.session();if(result.status==='pending')error('Kërkesa ende pret miratimin.');else await accept(result);}catch(e){error(e.message);}finally{if(!destroyed)setBusy(false);}return;}
       if(event.target.closest('[data-request-logout]')){stopCamera();clearPhoto();setBusy(true);try{if(service.configured)await service.logout();mode='login';message='';draw();}catch(e){error(e.message);}finally{if(!destroyed)setBusy(false);}}
     }
     async function submit(event){
+      if(event.target.id==='auth-recovery-request'||event.target.id==='auth-new-password'){
+        event.preventDefault();if(busy)return;const form=event.target;setBusy(true);error('');
+        try{if(form.id==='auth-recovery-request'){email=form.querySelector('#recovery-email').value;await service.forgotPassword(email);message='Nëse kjo llogari ekziston, lidhja e rikthimit do të dërgohet në email.';draw();}
+          else{const password=form.querySelector('#new-password').value;if(password!==form.querySelector('#new-password-confirm').value)throw new Error('Fjalëkalimet nuk përputhen.');await service.updatePassword(password);mode='login';message='Fjalëkalimi u ndryshua. Hyr përsëri.';draw();}}
+        catch(e){if(!destroyed)error(e.message);}finally{form.querySelectorAll('input[type="password"]').forEach(input=>input.value='');if(!destroyed)setBusy(false);}return;
+      }
       if(!event.target.matches('#auth-login-form,#auth-register-form,#auth-google-photo-form'))return;event.preventDefault();if(busy)return;error('');
       const form=event.target,google=form.id==='auth-google-photo-form',register=google||form.id==='auth-register-form';
       const password=google?'':form.querySelector(register?'#register-password':'#login-password').value,address=google?'':form.querySelector(register?'#register-email':'#login-email').value;
@@ -142,7 +169,7 @@
       if(register&&!google&&step==='account'&&!service.emailVerificationFirst){showStep('photo');return;}
       if(register&&!photo&&(google||!service.emailVerificationFirst)){error('Hap kamerën dhe shkrep fotografinë.');return;}
       setBusy(true);
-      try{accept(google?await service.completeGoogleRegistration({photo,capturedAt,consent:form.querySelector('#photo-consent').checked}):register?await service.register({email:address,password,photo,capturedAt,consent:form.querySelector('#photo-consent').checked}):await service.login(address,password));}
+      try{await accept(google?await service.completeGoogleRegistration({photo,capturedAt,consent:form.querySelector('#photo-consent').checked}):register?await service.register({email:address,password,photo,capturedAt,consent:form.querySelector('#photo-consent').checked}):await service.login(address,password));}
       catch(e){if(!destroyed){error(e.message);if(register&&!google)showStep('account');}}
       finally{form.querySelectorAll('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"]').forEach(input=>input.value='');if(!destroyed)setBusy(false);}
     }
@@ -150,8 +177,10 @@
     function pagehide(){stopCamera();service.cancelPasskey?.();clearPhoto();if(mode==='register'&&step==='photo')showStep('account',false);element.querySelectorAll('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"]').forEach(input=>input.value='');}
     element.addEventListener('click',click);element.addEventListener('submit',submit);document.addEventListener('visibilitychange',background);
     root.addEventListener('pagehide',pagehide);
+    const approvalTimer=setInterval(checkApproval,15000);
+    root.addEventListener('online',checkApproval);
     draw();
-    return {destroy(){destroyed=true;stopCamera();service.cancelPasskey?.();clearPhoto();element.querySelectorAll('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"]').forEach(input=>input.value='');element.removeEventListener('click',click);element.removeEventListener('submit',submit);document.removeEventListener('visibilitychange',background);root.removeEventListener('pagehide',pagehide);}};
+    return {destroy(){destroyed=true;clearInterval(approvalTimer);root.removeEventListener('online',checkApproval);stopCamera();service.cancelPasskey?.();clearPhoto();element.querySelectorAll('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"]').forEach(input=>input.value='');element.removeEventListener('click',click);element.removeEventListener('submit',submit);document.removeEventListener('visibilitychange',background);root.removeEventListener('pagehide',pagehide);}};
   }
   root.EmmaAuthUI={mount};
 })(globalThis);

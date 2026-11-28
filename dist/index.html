@@ -12,6 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Emma’s Space">
   <title>Emma’s Space</title>
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="improvements.css?v=19">
   <link rel="apple-touch-icon" href="icon-192.png">
   <style>
 /* ==========================================================================
@@ -5094,13 +5095,17 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   <script src="./schedule-pdf.js"></script>
   <script src="./journal-editor.js"></script>
   <script src="./space-model.js"></script>
+  <script src="./account-storage.js?v=19"></script>
+  <script src="./life-tools.js?v=19"></script>
+  <script src="./reminders.js?v=19"></script>
+  <script src="./app-improvements.js?v=19"></script>
   <script src="./journal-pdf.js"></script>
   <script src="./responsive.js"></script>
-  <script src="./auth-config.js?v=18"></script>
+  <script src="./auth-config.js?v=19"></script>
   <script src="./vendor/supabase.js"></script>
-  <script src="./supabase-auth.js?v=17"></script>
+  <script src="./supabase-auth.js?v=19"></script>
   <script src="./auth-service.js?v=17"></script>
-  <script src="./auth-ui.js?v=17"></script>
+  <script src="./auth-ui.js?v=19"></script>
   <script>
 (() => {
   "use strict";
@@ -5119,15 +5124,17 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   })();
   const DEV_DEMO_AVAILABLE = window.EMMA_AUTH_CONFIG?.developmentDemo === true && !window.EMMA_AUTH_CONFIG?.apiBaseUrl && (IS_PUBLIC_DEMO_LOCATION || location.protocol === 'file:' || ['http:','https:'].includes(location.protocol) && ['localhost','127.0.0.1','[::1]'].includes(location.hostname));
   const DEV_DEMO_ACTIVE = DEV_DEMO_AVAILABLE && /(?:^|&)demo=1(?:&|$)/.test((location.search || '').slice(1));
-  const workspaceKey = key => DEV_DEMO_ACTIVE ? 'emma-space-demo:' + key : key;
-  const STORAGE_KEY = workspaceKey("emma-tulip-garden-static");
-  const LEGACY_KEY = workspaceKey("emma-tulip-garden-v2");
-  const FALLBACK_KEY = workspaceKey("emma-space-device-fallback");
-  const DB_NAME = workspaceKey("emma-space-db");
+  const USE_ACCOUNT_STORAGE = window.EMMA_AUTH_CONFIG?.provider === 'supabase';
+  let workspaceUserId = '', workspaceReady = !USE_ACCOUNT_STORAGE || DEV_DEMO_ACTIVE;
+  const workspaceKey = key => DEV_DEMO_ACTIVE ? 'emma-space-demo:' + key : USE_ACCOUNT_STORAGE ? (workspaceUserId ? EmmaAccountStorage.prefix(workspaceUserId) : 'emma-space-locked:') + key : key;
+  let STORAGE_KEY = workspaceKey("emma-tulip-garden-static");
+  let LEGACY_KEY = workspaceKey("emma-tulip-garden-v2");
+  let FALLBACK_KEY = workspaceKey("emma-space-device-fallback");
+  let DB_NAME = workspaceKey("emma-space-db");
   const DB_VERSION = 1;
   const STORE_NAME = "app-data";
   const BACKUP_FORMAT = "emma-space-backup";
-  const SCHEMA_VERSION = 7;
+  const SCHEMA_VERSION = 8;
   const PROFILE_IMG_SRC = DEV_DEMO_ACTIVE ? "icon-192.png" : "avatar.webp";
   const ALLOWED_THEMES = ["light-blush", "oled-obsidian", "midnight-velvet", "nordic-slate", "emerald-garden"];
 
@@ -5171,6 +5178,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
     ];
     return {
       isExample: true,
+      exceptions: [],
       pdf: null,
       lessons: week.flatMap((subjects, dayIndex) => subjects.map((subject, lessonIndex) => ({
         id: `school-example-${dayIndex + 1}-${lessonIndex + 1}`,
@@ -5211,7 +5219,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
       usedIds.add(lesson.id);
       return [lesson];
     });
-    return { isExample: lessons.some(lesson => lesson.isExample), lessons, pdf: normalizeSchoolPdf(saved?.pdf) };
+    return { isExample: lessons.some(lesson => lesson.isExample), lessons, exceptions:EmmaLifeTools.exceptions(saved?.exceptions,lessons), pdf: normalizeSchoolPdf(saved?.pdf) };
   }
 
   function normalizeSchoolPdf(pdf) {
@@ -5222,6 +5230,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
 
   const blankState = () => ({
     schemaVersion: SCHEMA_VERSION,
+    maintenance: {firstUsedAt:Date.now(),lastBackupAt:0,backupReminder:true,backupDismissedDate:'',reminders:{enabled:false,quietStart:'22:00',quietEnd:'08:00',taskLead:0,examLead:30,lessonLead:5}},
     completed: [],
     removedDefaultRoutines: [],
     routineDate: today(),
@@ -5291,6 +5300,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
     if (!saved || typeof saved !== "object") return blankState();
     return {
       ...blankState(),
+      maintenance: {firstUsedAt:Number(saved.maintenance?.firstUsedAt)||Date.now(),lastBackupAt:Math.max(0,Number(saved.maintenance?.lastBackupAt)||0),backupReminder:saved.maintenance?.backupReminder!==false,backupDismissedDate:typeof saved.maintenance?.backupDismissedDate==='string'?saved.maintenance.backupDismissedDate:'',reminders:{enabled:saved.maintenance?.reminders?.enabled===true,quietStart:EmmaLifeTools.validTime(saved.maintenance?.reminders?.quietStart)?saved.maintenance.reminders.quietStart:'22:00',quietEnd:EmmaLifeTools.validTime(saved.maintenance?.reminders?.quietEnd)?saved.maintenance.reminders.quietEnd:'08:00',taskLead:0,examLead:[0,15,30,60].includes(saved.maintenance?.reminders?.examLead)?saved.maintenance.reminders.examLead:30,lessonLead:[0,5,10,15].includes(saved.maintenance?.reminders?.lessonLead)?saved.maintenance.reminders.lessonLead:5}},
       routineDate: /^\d{4}-\d{2}-\d{2}$/.test(saved.routineDate || '') ? saved.routineDate : today(),
       routineHistory: saved.routineHistory && typeof saved.routineHistory === 'object' ? saved.routineHistory : {},
       routineSettings: Object.fromEntries(Object.entries(saved.routineSettings || {}).map(([key,value])=>[key,EmmaSpaceModel.schedule(value || {})])),
@@ -5479,11 +5489,11 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
       if(!['journalPages','studyTasks','subjects'].some(key=>Array.isArray(parsed.data[key])))throw new Error('Kopja nuk përmban të dhëna të aplikacionit');
       for(const key of ['journalPages','studyTasks','subjects','exams','customRoutines'])if(parsed.data[key]!==undefined&&!Array.isArray(parsed.data[key]))throw new Error('Të dhëna të dëmtuara');
       if (parsed.data.schoolSchedule?.pdf && !normalizeSchoolPdf(parsed.data.schoolSchedule.pdf)) throw new Error("PDF i pavlefshëm në kopjen rezervë");
-      return normalizeState(parsed.data);
+      const restored=normalizeState(parsed.data);restored.maintenance.reminders.enabled=false;return restored;
     }
     const looksLegacy = Array.isArray(parsed.studyTasks) || Array.isArray(parsed.journalPages) || Array.isArray(parsed.subjects);
     if (!looksLegacy) throw new Error("Nuk është backup i Emma’s Space");
-    return normalizeState(parsed);
+    const restored=normalizeState(parsed);restored.maintenance.reminders.enabled=false;return restored;
   }
 
   function buildBackupPayload() {
@@ -5501,6 +5511,9 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   async function replaceWithRecovery(candidate) {
     clearTimeout(draftSaveTimer);
     await saveQueue.catch(()=>{});
+    // Imported settings must never keep an older device's notification queue active.
+    await improvements?.beforeLogout();
+    if(candidate.maintenance?.reminders)candidate.maintenance.reminders.enabled=false;
     const previous=JSON.parse(JSON.stringify(state));
     const db=await openEmmaDB();
     await new Promise((resolve,reject)=>{const tx=db.transaction(STORE_NAME,'readwrite');const store=tx.objectStore(STORE_NAME);store.put({key:'pre-import',value:previous});store.put({key:'state',value:candidate});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
@@ -5511,19 +5524,21 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   }
 
   let state = blankState();
+  let improvements = null;
   let saveQueue = Promise.resolve();
   function save({ requireDatabase = false } = {}) {
+    if(USE_ACCOUNT_STORAGE&&!DEV_DEMO_ACTIVE&&!workspaceReady)return Promise.reject(new Error('Hap fillimisht llogarinë për ruajtje.'));
     const snapshot = JSON.parse(JSON.stringify({ ...state, schemaVersion: SCHEMA_VERSION }));
     if (!storageReady) {
       if (requireDatabase) return Promise.reject(new Error("Ruajtja lokale nuk është e disponueshme për PDF-në. Mund t'i caktosh orët manualisht."));
       localStorage.setItem(FALLBACK_KEY, JSON.stringify(snapshot));
-      return Promise.resolve();
+      improvements?.changed();return Promise.resolve();
     }
     saveQueue = saveQueue.catch(() => {}).then(() => persistStoredState(snapshot)).catch(error => {
       if (requireDatabase) throw error;
       localStorage.setItem(FALLBACK_KEY, JSON.stringify(snapshot));
     });
-    return saveQueue;
+    improvements?.changed();return saveQueue;
   }
 
   function applyTheme(theme) {
@@ -5568,7 +5583,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   }
 
   let appLocked = false;
-  const SIGNED_OUT_KEY = workspaceKey('emma-space-signed-out');
+  let SIGNED_OUT_KEY = workspaceKey('emma-space-signed-out');
   let sessionExited = false;
   try {sessionExited=localStorage.getItem(SIGNED_OUT_KEY)==='1';}catch{}
   let signingOut = false;
@@ -5579,7 +5594,24 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   let authClient,authView=null,authStatus='anonymous',authEmail='',authEmailVerified=false,authNotice='',focusHydrated=false;
   try{authClient=EmmaAuthService.create(DEV_DEMO_ACTIVE?{}:window.EMMA_AUTH_CONFIG || {});}catch(error){authClient=EmmaAuthService.create({});authNotice=error.message;}
 
-  function hasWorkspaceAccess(){return DEV_DEMO_ACTIVE || authClient.isAuthenticated();}
+  function hasWorkspaceAccess(){return DEV_DEMO_ACTIVE || authClient.isAuthenticated() && (!USE_ACCOUNT_STORAGE || workspaceReady && workspaceUserId === authClient.getIdentity?.()?.id);}
+  async function selectAccountWorkspace() {
+    const identity=authClient.getIdentity?.();
+    if(!identity||!EmmaAccountStorage.validId(identity.id)||!authClient.isAuthenticated())throw new Error('Hyrja e llogarisë nuk u verifikua.');
+    if(workspaceReady&&workspaceUserId===identity.id)return;
+    improvements?.reset();workspaceReady=false;clearTimeout(draftSaveTimer);await saveQueue.catch(()=>{});
+    if(dbPromise){try{(await dbPromise).close();}catch{}}
+    dbPromise=null;storageReady=false;state=blankState();journalDraft=null;pendingJournalPhotos=[];editingJournalId=null;recoverySnapshot=null;focusHydrated=false;
+    workspaceUserId=identity.id;
+    STORAGE_KEY=workspaceKey('emma-tulip-garden-static');LEGACY_KEY=workspaceKey('emma-tulip-garden-v2');FALLBACK_KEY=workspaceKey('emma-space-device-fallback');DB_NAME=workspaceKey('emma-space-db');SIGNED_OUT_KEY=workspaceKey('emma-space-signed-out');DRAFT_TEXT_KEY=workspaceKey('emma-space-journal-draft-text');
+    const db=await openEmmaDB();
+    await EmmaAccountStorage.migrateLegacy({uid:identity.id,target:db,indexedDB,storage:localStorage,normalize:normalizeState});
+    state=await loadPersistentState();storageReady=true;
+    if(authClient.getIdentity?.()?.id!==identity.id||!authClient.isAuthenticated())throw new Error('Sesioni ndryshoi. Hyr përsëri.');
+    workspaceReady=true;restoreJournalDraft();recoverySnapshot=await readRecoverySnapshot();applyTheme(state.theme);
+    if(EmmaSpaceModel.rollover(state,today()))await save();
+  }
+  function openAdministrator(){authView?.destroy();authView=null;window.location.assign(new URL('./admin.html',location.href).href);}
   function demoUrl(active){const url=new URL(location.href);if(active)url.searchParams.set('demo','1');else url.searchParams.delete('demo');url.hash='home';return url.href;}
   function openDevelopmentDemo(){if(DEV_DEMO_AVAILABLE)window.location.assign(demoUrl(true));}
 
@@ -5589,8 +5621,9 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
     authView=EmmaAuthUI.mount(document.getElementById('app'),{service:authClient,status:authStatus,email:authEmail,emailVerified:authEmailVerified,message:authNotice,onSessionReady:()=>{sessionExited=false;try{localStorage.removeItem(SIGNED_OUT_KEY);}catch{}},onDemo:DEV_DEMO_AVAILABLE?openDevelopmentDemo:null,onGoogleRedirect:url=>{
       try{localStorage.removeItem(SIGNED_OUT_KEY);}catch{}
       window.location.assign(url);
-    },onAuthenticated:()=>{
+    },onAdministrator:openAdministrator,onAuthenticated:async()=>{
       if(!authClient.isAuthenticated())return;
+      if(USE_ACCOUNT_STORAGE&&!DEV_DEMO_ACTIVE)await selectAccountWorkspace();
       authView?.destroy();authView=null;authStatus='approved';authEmail='';authNotice='';sessionExited=false;
       try{localStorage.removeItem(SIGNED_OUT_KEY);}catch{}
       appLocked=!!state.pin?.enabled;render();window.scrollTo({top:0,left:0,behavior:'auto'});
@@ -5604,12 +5637,13 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
     resetAutoLockTimer();setTimeout(showStudyReminderOnOpen,260);
   }
   async function verifyOnlineSession(){
+    if(navigator.onLine===false)return;
     if(DEV_DEMO_ACTIVE||!authClient.configured||sessionExited)return;
     try{const result=await authClient.session();authStatus=result.status;authEmail=result.email||'';authEmailVerified=result.emailVerified===true;if(!hasWorkspaceAccess()){authNotice='Kyçu për të vazhduar.';hideLocalSession(false);}}
     catch(error){if(error.code==='SESSION_ENDED')return;authNotice=error.message;authStatus='anonymous';hideLocalSession(false);}
   }
   function hideLocalSession(explicit=true) {
-    sessionExited=true;appLocked=true;
+    improvements?.reset();sessionExited=true;appLocked=true;
     authClient.forget();authView?.destroy();authView=null;
     if(explicit){authStatus='login';authEmail='';if(!authNotice)authNotice='Ke dalë nga aplikacioni.';}
     clearTimeout(autoLockTimer);clearInterval(focus.timer);focus.active=false;focusLocked=false;
@@ -5625,6 +5659,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
       if(focus.active){clearInterval(focus.timer);focus.active=false;state.focusSession={active:false,minutes:focus.minutes,seconds:Math.max(0,focus.seconds),subjectId:focus.subjectId || '',endAt:0};}
       await save();
       if(DEV_DEMO_ACTIVE){window.location.assign(demoUrl(false));return;}
+      try{await improvements?.beforeLogout();}catch{}
       renderSigningOut();
       try{await authClient.logout();authNotice='Ke dalë nga aplikacioni.';}catch{authNotice='U mbyll hyrja në këtë pajisje. Serveri nuk u arrit për ta mbyllur sesionin; provo përsëri kur të jesh online.';}
       try{localStorage.setItem(SIGNED_OUT_KEY,'1');}catch{}
@@ -6843,7 +6878,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   function currentSchoolLessons(now = new Date()) {
     const day = now.getDay();
     const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    return (state.schoolSchedule?.lessons || [])
+    return EmmaLifeTools.lessonsOn(state.schoolSchedule,now)
       .filter(lesson => lesson.day === day && lesson.startTime <= time && time < lesson.endTime)
       .sort((a, b) => a.startTime.localeCompare(b.startTime) || a.endTime.localeCompare(b.endTime));
   }
@@ -6879,6 +6914,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
 
     return `
       <section class="screen home-screen">
+        ${improvements?.backupHTML()||''}
         <!-- Hero Section -->
         <div class="home-hero">
           <div class="home-profile-stack">
@@ -7295,6 +7331,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
               </div>
             </li>`).join('')}
           </ol>` : `<div class="school-schedule-empty"><p>Nuk ke orë mësimi për këtë ditë.</p><button type="button" class="subtle-button" id="btn-empty-add-school-lesson">+ Shto orë</button></div>`}
+          ${improvements?.exceptionsHTML()||''}
         </section>
       </div>`;
   }
@@ -7565,7 +7602,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
   let pendingJournalPhotos = [];
   let journalEditor = null;
   let journalDraft = null;
-  const DRAFT_TEXT_KEY = workspaceKey('emma-space-journal-draft-text');
+  let DRAFT_TEXT_KEY = workspaceKey('emma-space-journal-draft-text');
   let draftSaveTimer = null;
   function stashJournalDraft() {
     if (!journalDraft) return;
@@ -8190,6 +8227,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
         </div>
 
         </div></details>
+        ${improvements?.remindersHTML()||''}
         <!-- Audio & Data Management -->
         <h2 style="font-size: 20px; margin: 18px 0 14px;">Cilësimet</h2>
         <div class="hub-card stagger-in">
@@ -8246,6 +8284,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
           <summary>Ruajtja dhe rikthimi</summary>
           <div class="advanced-options-panel">
           <small style="margin:4px 0 14px;">Të dhënat dhe fotografitë ruhen vetëm në këtë pajisje.</small>
+          ${improvements?.storageHTML()||''}
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button id="btn-backup-export" class="subtle-button">Ruaj një kopje</button>
             ${recoverySnapshot?'<button id="btn-undo-import" class="subtle-button">Kthe gjendjen para rikthimit</button>':''}
@@ -8308,6 +8347,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
             <div class="header-right">
               <span class="date-pill">${uiLineIcon("calendar", 15)} ${prettyAlbanianDate()}</span>
 
+              <button type="button" class="icon-pill-btn" data-global-search aria-label="Kërko në aplikacion" title="Kërko"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
               <button id="header-theme-btn" type="button" class="icon-pill-btn" title="${state.theme === 'light-blush' ? 'Aktivizo pamjen e errët' : 'Aktivizo pamjen e çelët'}" aria-label="${state.theme === 'light-blush' ? 'Aktivizo pamjen e errët' : 'Aktivizo pamjen e çelët'}" aria-pressed="${state.theme !== 'light-blush'}">
                 ${uiLineIcon(state.theme === "light-blush" ? "moon" : "sun", 19)}
               </button>
@@ -8327,6 +8367,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
           </header>
           </div>
 
+          ${improvements?.connectionHTML()||''}
           <!-- Main Dynamic Screen -->
           <div id="screen-container">
             ${contentHTML}
@@ -8395,6 +8436,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
     };
     const screenFn = screenMap[current] || homeScreen;
     document.getElementById("app").innerHTML = shell(screenFn(), current);
+    improvements?.afterRender();
     if (screenFn === journalScreen) {
       journalEditor = EmmaJournalEditor.mount(document.getElementById("journal-body"), {
         content: ensureJournalDraft().content,
@@ -9338,7 +9380,7 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
     const delPageBtn = event.target.closest("[data-delete-page]");
     if (delPageBtn) {
       const pageId = delPageBtn.dataset.deletePage;
-      showConfirm("Fshi Faqen e Ditarit", "A je e sigurt që dëshiron ta fshish këtë faqe përgjithmonë?", () => {
+      showConfirm("Fshi Faqen e Ditarit", "A je e sigurt që dëshiron ta fshish këtë faqe nga ditari?", () => {
         state.journalPages = state.journalPages.filter(p => p.id !== pageId);
         save();
         delPageBtn.closest(".journal-page-card")?.remove();
@@ -9406,7 +9448,8 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
       downloadAnchor.click();
       downloadAnchor.remove();
       setTimeout(() => URL.revokeObjectURL(dataUrl), 1000);
-      bloomToast("Kopja rezervë u shkarkua me sukses! 💾");
+      improvements?.backedUp().then(()=>{if(route()==='profile')render();}).catch(()=>bloomToast('Kopja u nis, por data e shkarkimit nuk u ruajt.','⚠️'));
+      bloomToast("Shkarkimi i kopjes u nis. 💾");
       return;
     }
 
@@ -10078,22 +10121,21 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
         <p class="emma-opening-private"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" stroke-linecap="round"/></svg>Vetëm e jotja</p>
       </main>
     `;
-    try {
-      state = await loadPersistentState();
-      storageReady = true;
-    } catch {
-      state = loadLegacyState();
-      storageReady = false;
-      localStorage.setItem(FALLBACK_KEY, JSON.stringify(state));
+    if(DEV_DEMO_ACTIVE)sessionExited=false;
+    if(!DEV_DEMO_ACTIVE&&authClient.configured&&(!sessionExited||['code','error','token_hash'].some(key=>new URL(location.href).searchParams.has(key)))){
+      try{const result=await authClient.session();authStatus=result.status;authEmail=result.email||'';authEmailVerified=result.emailVerified===true;
+        if(result.status==='administrator'){openAdministrator();return;}
+        if(result.status!=='anonymous'){sessionExited=false;try{localStorage.removeItem(SIGNED_OUT_KEY);}catch{}}
+        if(result.status==='approved'&&USE_ACCOUNT_STORAGE)await selectAccountWorkspace();
+      }catch(error){authNotice=error.message;authStatus='anonymous';}
+    }
+    if(DEV_DEMO_ACTIVE||!USE_ACCOUNT_STORAGE){
+      try{state=await loadPersistentState();storageReady=true;}catch{state=loadLegacyState();storageReady=false;localStorage.setItem(FALLBACK_KEY,JSON.stringify(state));}
+      restoreJournalDraft();if(EmmaSpaceModel.rollover(state,today()))await save();recoverySnapshot=await readRecoverySnapshot();
     }
     applyTheme(state.theme);
-    const loadingTimeLeft = Math.max(0, minimumLoadingMs - (performance.now() - loadingStartedAt));
-    if (loadingTimeLeft) await new Promise(resolve => setTimeout(resolve, loadingTimeLeft));
-    restoreJournalDraft();
-    if(EmmaSpaceModel.rollover(state,today())) await save();
-    recoverySnapshot=await readRecoverySnapshot();
-    if(DEV_DEMO_ACTIVE)sessionExited=false;
-    if(!DEV_DEMO_ACTIVE&&authClient.configured&&(!sessionExited||window.EMMA_AUTH_CONFIG?.provider==='supabase'&&['code','error'].some(key=>new URL(location.href).searchParams.has(key)))){try{const result=await authClient.session();authStatus=result.status;authEmail=result.email||'';authEmailVerified=result.emailVerified===true;if(result.status!=='anonymous'){sessionExited=false;try{localStorage.removeItem(SIGNED_OUT_KEY);}catch{}}}catch(error){authNotice=error.message;authStatus='anonymous';}}
+    const loadingTimeLeft=Math.max(0,minimumLoadingMs-(performance.now()-loadingStartedAt));
+    if(loadingTimeLeft)await new Promise(resolve=>setTimeout(resolve,loadingTimeLeft));
     if(sessionExited)authNotice='Për llogarinë ekzistuese, zgjidh “Hyr”.';
     appLocked = sessionExited || !!state.pin?.enabled;
     render();
@@ -10104,6 +10146,23 @@ body:not([data-theme="light-blush"]) .exam-card.done { --exam-status: #a4c5b2; }
     }
   }
 
+  if(window.EmmaImprovements)improvements=EmmaImprovements.create({
+    getState:()=>state,save,render,canAccess:()=>hasWorkspaceAccess()&&!sessionExited&&!appLocked,
+    modal:showCustomModal,closeModal:closeCustomModal,toast:bloomToast,key:workspaceKey,
+    service:authClient,demo:DEV_DEMO_ACTIVE,defaults:defaultRoutines,
+    openResult:result=>{
+      if(result.tab)activeStudyTab=result.tab;
+      if(result.subjectId){activeSubjectWorkspaceId=result.subjectId;activeSubjectNoteDate=result.date||studyDayKey();}
+      if(result.day!==undefined)activeScheduleDay=result.day;
+      location.hash='#'+result.route;render();
+      setTimeout(()=>{
+        const attribute={'Detyrë':'data-delete-task','Provim':'data-delete-exam','Ditar':'data-delete-page','Orë mësimi':'data-edit-school-lesson'}[result.type];
+        const element=attribute?document.querySelector('['+attribute+'="'+CSS.escape(result.id)+'"]'):null;
+        const card=element?.closest('.task-card,.exam-card,.journal-page-card,.school-schedule-lesson')||element;
+        if(card){card.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});card.classList.add('search-highlight');setTimeout(()=>card.classList.remove('search-highlight'),1700);}
+      },60);
+    }
+  });
   bootstrapApp();
 
 })();

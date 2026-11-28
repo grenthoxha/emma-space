@@ -2,7 +2,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const root=path.resolve(__dirname,'..'),model=require('../space-model'),editor=require('../journal-editor'),pdf=require('../journal-pdf');
 const source=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const scripts=[...source.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]);scripts.forEach(s=>new vm.Script(s));
-const context={EmmaSpaceModel:model,EmmaJournalEditor:editor,EmmaAuthService:require('../auth-service'),document:{addEventListener(){},querySelector(){return null;},querySelectorAll(){return[];}},window:{addEventListener(){}},localStorage:{getItem(){return null;}},location:{hash:'#home'},console,Date,TextEncoder,setTimeout,clearTimeout,setInterval,clearInterval};
+const context={EmmaLifeTools:require('../life-tools'),EmmaSpaceModel:model,EmmaJournalEditor:editor,EmmaAuthService:require('../auth-service'),document:{addEventListener(){},querySelector(){return null;},querySelectorAll(){return[];}},window:{addEventListener(){}},localStorage:{getItem(){return null;}},location:{hash:'#home'},console,Date,TextEncoder,setTimeout,clearTimeout,setInterval,clearInterval};
 const script=scripts.find(s=>s.includes('  bootstrapApp();')).replace('  bootstrapApp();','  globalThis.api={blankState,normalizeState,parseBackupPayload,homeScreen,routineScreen,profileScreen,routineProgress,setState:s=>state=s};');
 vm.runInNewContext(script,context);const api=context.api,state=api.blankState(),today=model.dayKey();
 state.studyTasks=Array.from({length:5},(_,i)=>({id:'t'+i,title:'Detyra '+(i+1),dueDate:today,dueTime:'10:00',completed:false}));

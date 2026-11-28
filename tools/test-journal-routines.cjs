@@ -27,7 +27,7 @@ assert.equal(editor.safePhotoData('data:image/svg+xml;base64,AAAA'), '');
 const appScript = scripts.find(script => script.includes('  bootstrapApp();'));
 assert(appScript);
 const isolated = appScript.replace('  bootstrapApp();', '  globalThis.testApi = {blankState, normalizeState, parseBackupPayload, buildBackupPayload, routineProgress, routinePeriod, syncRoutinePeriod, setState: value => state = value};');
-const context = {
+const context = {EmmaLifeTools:require('../life-tools'),
   EmmaJournalEditor: editor, EmmaSpaceModel:model, EmmaAuthService:require('../auth-service'),
   document: {addEventListener() {}, querySelector() {return null;}, querySelectorAll() {return [];}},
   window: {addEventListener() {}}, localStorage: {getItem() {return null;}}, location: {hash: '#home'},
@@ -42,7 +42,7 @@ data.journalPages = [{id: 'old', body: 'Shkrimi i vjetër', title: 'Kujtim', pho
 api.setState(api.normalizeState(data));
 assert.equal(api.routineProgress(), 17);
 const backup = api.buildBackupPayload();
-assert.equal(backup.version, 7);
+assert.equal(backup.version, 8);
 const restored = api.parseBackupPayload(JSON.parse(JSON.stringify(backup)));
 assert.equal(restored.journalPages[0].body, 'Shkrimi i vjetër');
 assert.equal(restored.journalPages[0].content[1].photoId, 'p');
