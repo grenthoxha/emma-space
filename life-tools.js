@@ -18,13 +18,14 @@
   function search(state,query,defaults=[]){
     const words=fold(query).trim().split(/\s+/).filter(Boolean);if(!words.length)return [];
     const results=[],add=(type,id,title,text,route,extra={})=>{const content=fold(title+' '+text);if(words.every(w=>content.includes(w)))results.push({type,id,title:String(title),text:String(text).slice(0,160),route,...extra});};
-    for(const t of state.studyTasks||[])add('Detyrë',t.id,t.title,t.dueDate+' '+(state.subjects||[]).find(s=>s.id===t.subjectId)?.name,'study',{tab:'plan'});
+    for(const t of state.studyTasks||[])add('Detyrë',t.id,t.title,(t.dueDate||'')+' '+((state.subjects||[]).find(s=>s.id===t.subjectId)?.name||''),'study',{tab:'plan'});
     for(const e of state.exams||[])add('Provim',e.id,e.title,(e.notes||'')+' '+e.dateTime,'study',{tab:'exams'});
     for(const s of state.subjects||[])add('Lëndë',s.id,s.name,'','study',{tab:'subjects',subjectId:s.id});
     for(const [subjectId,notes] of Object.entries(state.subjectNotes||{}))for(const [date,note] of Object.entries(notes||{}))add('Shënim',subjectId+':'+date,(state.subjects||[]).find(s=>s.id===subjectId)?.name||'Shënim',note.content||'','study',{tab:'subjects',subjectId,date});
     for(const c of state.flashcards||[])add('Kartelë',c.id,c.question,c.answer,'study',{tab:'subjects',subjectId:c.subjectId});
     for(const p of state.journalPages||[])add('Ditar',p.id,p.title,p.body||'','journal');
-    for(const r of [...defaults,...state.customRoutines||[]])add('Rutinë',r.id||r.label,r.label,'','life');
+    for(const [index,r] of defaults.entries())if(!(state.removedDefaultRoutines||[]).includes(index))add('Rutinë','d:'+index,state.routineSettings?.['d:'+index]?.label||r.label,'','life');
+    for(const r of state.customRoutines||[])add('Rutinë',r.id,state.routineSettings?.['c:'+r.id]?.label||r.label,'','life');
     for(const l of state.schoolSchedule?.lessons||[])add('Orë mësimi',l.id,l.subject,l.startTime+' '+l.room,'study',{tab:'schedule',day:l.day});
     return results.slice(0,60);
   }

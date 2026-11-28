@@ -28,5 +28,5 @@ function fixture(){
   f=fixture();s=f.service;f.state.session={};f.state.admin=true;let resolve;f.state.rpcWait=new Promise(r=>resolve=r);const late=s.list();s.cancel();resolve();await assert.rejects(late,{code:'ENDED'});
   f=fixture();f.env.location.href=config.redirectUrl+'admin.html?code=synthetic';s=create(config,f.env);await s.session();await s.session();assert.equal(f.calls.filter(c=>c[0]==='exchange').length,1);assert.equal(f.calls.find(c=>c[0]==='history')[1],config.redirectUrl+'admin.html');
   assert.throws(()=>create({...config,supabasePublishableKey:'sb_secret_never'},f.env),{code:'CONFIG'});
-  console.log('PASS: admin membership, private photos, one-user limit errors, status concurrency, no self-approval, separate sessions, callback cleanup and stale replies');
+console.log('PASS: admin membership, private photos, one-user limit errors, status concurrency, no self-approval, shared tab session, callback cleanup and stale replies');
 })().catch(e=>{console.error(e);process.exitCode=1;});
