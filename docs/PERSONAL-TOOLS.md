@@ -14,6 +14,8 @@ Reminders are opt-in in Profile. On iPhone, open the installed Home Screen app a
 
 Hosted `supabase-reminders-test.sql` passed approved-only access, cross-account isolation, private key denial, dispatcher authorization and non-overlapping job claims. All fixtures were rolled back.
 
+Security Advisor was checked after deployment. The newly installed empty `pg_net` extension was registered in `extensions`, removing the public-extension warning. Security results: no errors; one Auth warning for disabled leaked-password protection, and two expected informational default-deny RLS notes for the administrator registry and server-only push settings. Performance suggestions for the existing request policies remain separate from security findings.
+
 ## Email configuration still requiring private credential entry
 
 The owner chose Gmail SMTP. In Supabase Authentication → Emails → SMTP Settings, use `smtp.gmail.com`, port `465`, sender name `Emma’s Space`. Sender email and SMTP username must be the owner's chosen Gmail address. The owner creates and enters the Gmail **App Password**, with Google 2-Step Verification enabled, directly in Supabase and saves it. Never commit it or send it in chat. No credential has been read or stored by the operator.

@@ -5,7 +5,7 @@
   function create(host){
     const {getState,save,render,canAccess,modal,closeModal,toast,key,service,demo}=host;
     const reminders=EmmaReminders.create({service,getState,save,key,demo,canAccess});
-    let estimate=null,undo=null,undoTimer=null,deleteIntent=false,searchResults=[],measurement=0;
+    let estimate=null,undo=null,undoTimer=null,deleteIntent=false,searchResults=[],measurement=0,revision=0;
     const meta=()=>getState().maintenance;
     function backupHTML(){return EmmaLifeTools.backupDue(meta())?'<aside class="maintenance-note" role="status"><span>Ka kaluar një javë pa ruajtur kopje.</span><button class="subtle-button" id="btn-backup-export">Ruaj një kopje</button><button class="icon-pill-btn" data-dismiss-backup aria-label="Ma kujto nesër">×</button></aside>':'';}
     function storageHTML(){
@@ -28,7 +28,7 @@
       if(event.target.closest('#confirm-cancel')){deleteIntent=false;return;}
       const deleting=event.target.closest('[data-delete-task],[data-delete-home-task],[data-delete-page],[data-delete-exam],[data-delete-subject],[data-delete-flashcard],[data-delete-school-lesson],[data-delete-custom-routine],[data-remove-default-routine],[data-delete-exception]');
       if(deleting||deleteIntent&&event.target.closest('#confirm-yes')){
-        deleteIntent=!!deleting;const before=JSON.parse(JSON.stringify(getState()));queueMicrotask(()=>{if(canAccess())showUndo(before);});
+        deleteIntent=!!deleting;const before=JSON.parse(JSON.stringify(getState())),version=revision;setTimeout(()=>{if(version===revision&&canAccess())showUndo(before);},0);
       }
     },true);
     function search(){
@@ -50,7 +50,7 @@
       if(form.id==='school-exception-form'){
         const e={id:'exception-'+crypto.randomUUID(),date:form.elements.date.value,kind:form.elements.kind.value,lessonId:form.elements.lessonId.value,lesson:{subject:form.elements.subject.value,startTime:form.elements.startTime.value,endTime:form.elements.endTime.value,room:form.elements.room.value}};
         const value=EmmaLifeTools.exceptions([e],getState().schoolSchedule.lessons)[0];if(!value){form.querySelector('[data-exception-error]').textContent='Kontrollo datën, lëndën dhe orët. Për anulim, zgjidh një orë që ekziston atë ditë.';return;}
-        const state=getState(),previous=state.schoolSchedule.exceptions;state.schoolSchedule.exceptions=previous.filter(v=>v.date!==e.date||(e.kind==='day_off'?v.kind!=='day_off':v.kind!=='day_off'&&v.lessonId!==e.lessonId));state.schoolSchedule.exceptions.push(value);
+        const state=getState(),previous=state.schoolSchedule.exceptions;state.schoolSchedule.exceptions=previous.filter(v=>v.date!==e.date||(e.kind==='day_off'?v.kind!=='day_off':v.kind!=='day_off'&&(e.kind==='extra'||v.kind==='extra'||v.lessonId!==e.lessonId)));state.schoolSchedule.exceptions.push(value);
         try{await save();closeModal();render();toast('Ndryshimi u ruajt vetëm për këtë datë.');}catch{state.schoolSchedule.exceptions=previous;form.querySelector('[data-exception-error]').textContent='Ndryshimi nuk u ruajt. Provo përsëri.';}
       }else{
         const p=meta().reminders;p.quietStart=form.elements.quietStart.value;p.quietEnd=form.elements.quietEnd.value;p.examLead=Number(form.elements.examLead.value);p.lessonLead=Number(form.elements.lessonLead.value);
@@ -72,7 +72,7 @@
     root.addEventListener('online',refreshConnection);root.addEventListener('offline',refreshConnection);
     return {backupHTML,storageHTML,remindersHTML,connectionHTML,exceptionsHTML,reminders,
       afterRender(){refreshConnection();measure();},changed(){reminders.changed();},
-      reset(){measurement++;undo=null;deleteIntent=false;clearTimeout(undoTimer);document.getElementById('app-undo-toast')?.remove();reminders.reset();},
+      reset(){revision++;measurement++;undo=null;deleteIntent=false;clearTimeout(undoTimer);document.getElementById('app-undo-toast')?.remove();reminders.reset();},
       async backedUp(){meta().lastBackupAt=Date.now();await save();},
       async beforeLogout(){if(meta()?.reminders?.enabled)await reminders.disable();}
     };

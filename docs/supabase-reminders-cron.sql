@@ -1,5 +1,5 @@
 create extension if not exists pg_cron with schema pg_catalog;
-create extension if not exists pg_net;
+create extension if not exists pg_net with schema extensions;
 select cron.schedule('emma-private-reminders','* * * * *',$schedule$
  select net.http_post(
    url:='https://roexzfpbvbmvhwzsycsw.supabase.co/functions/v1/emma-reminders',

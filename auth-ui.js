@@ -21,6 +21,7 @@
     }
     function draw(){
       drawBase();
+      const connection=document.createElement('p');connection.dataset.authOffline='';connection.className='auth-footnote';connection.textContent='Pa internet. Hyrja dhe verifikimi kërkojnë lidhje.';element.querySelector('.auth-card').append(connection);updateConnection();
       step='account';
       if(mode==='register'){
         const form=element.querySelector('#auth-register-form'),account=document.createElement('fieldset'),photoStep=document.createElement('fieldset');
@@ -173,14 +174,16 @@
       catch(e){if(!destroyed){error(e.message);if(register&&!google)showStep('account');}}
       finally{form.querySelectorAll('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"]').forEach(input=>input.value='');if(!destroyed)setBusy(false);}
     }
+    function updateConnection(){const note=element.querySelector('[data-auth-offline]');if(note)note.hidden=root.navigator?.onLine!==false;}
     function background(){if(document.hidden){stopCamera();service.cancelPasskey?.();}}
     function pagehide(){stopCamera();service.cancelPasskey?.();clearPhoto();if(mode==='register'&&step==='photo')showStep('account',false);element.querySelectorAll('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"]').forEach(input=>input.value='');}
     element.addEventListener('click',click);element.addEventListener('submit',submit);document.addEventListener('visibilitychange',background);
     root.addEventListener('pagehide',pagehide);
     const approvalTimer=setInterval(checkApproval,15000);
     root.addEventListener('online',checkApproval);
+    root.addEventListener('online',updateConnection);root.addEventListener('offline',updateConnection);
     draw();
-    return {destroy(){destroyed=true;clearInterval(approvalTimer);root.removeEventListener('online',checkApproval);stopCamera();service.cancelPasskey?.();clearPhoto();element.querySelectorAll('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"]').forEach(input=>input.value='');element.removeEventListener('click',click);element.removeEventListener('submit',submit);document.removeEventListener('visibilitychange',background);root.removeEventListener('pagehide',pagehide);}};
+    return {destroy(){destroyed=true;clearInterval(approvalTimer);root.removeEventListener('online',checkApproval);root.removeEventListener('online',updateConnection);root.removeEventListener('offline',updateConnection);stopCamera();service.cancelPasskey?.();clearPhoto();element.querySelectorAll('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"]').forEach(input=>input.value='');element.removeEventListener('click',click);element.removeEventListener('submit',submit);document.removeEventListener('visibilitychange',background);root.removeEventListener('pagehide',pagehide);}};
   }
   root.EmmaAuthUI={mount};
 })(globalThis);
